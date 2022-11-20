@@ -23,7 +23,7 @@ class CommBus():
         gpio.setwarnings(False)
         gpio.setmode(gpio.BOARD)
         gpio.setup(_tx_enable_pin, gpio.OUT, initial=gpio.LOW)
-        self._ser = serial.Serial("/dev/ttyS0", baudrate=115200, write_timeout=0.060, timeout=0)
+        self._ser = serial.Serial("/dev/ttyAMA0", baudrate=115200, write_timeout=0.060, timeout=0, parity='N', stopbits=1)
 
     def _enable_tx(self):
         gpio.output(_tx_enable_pin, gpio.HIGH)
@@ -131,7 +131,6 @@ class CommBus():
         self._tm_last_msg = tsent
         imsgptr = 0  # the location in the current message
         datlen = 0   # the indicated message len
-        ourmsg = False  # indicates which msg we are processing.
         in_msgbuf = bytearray(60)  # the accumulated input
         ncnt = 0;
         while(True):

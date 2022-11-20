@@ -1,3 +1,6 @@
+// Tests the communication between one node and the Pi.
+// dlb, Fall 2022
+
 #include "comm_bus.h"
 
 #define NODE_ADDRESS 2
@@ -22,7 +25,7 @@ void setup() {
 // Called when a message is received.
 void on_receive(byte *msg, int n) {
   if(n <= 0) return;
-  if(msg[0]) digitalWrite(PIN_LED1, LOW);
+  if(msg[0] == '1') digitalWrite(PIN_LED1, LOW);
   else digitalWrite(PIN_LED1, HIGH);
 }
 

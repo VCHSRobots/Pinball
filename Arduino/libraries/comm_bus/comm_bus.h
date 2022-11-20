@@ -34,7 +34,8 @@ class CommBus {
     uint8_t _response_data[16];                // Pending response msg
     int _response_data_len = 0;                // Pending response msg len
     bool _new_response_pending = false;        // If the response data is new
-    uint8_t _output_data[20];                   // The message being sent back to the host
+    uint8_t _output_data[20];                  // The message being sent back to the host
+    int _output_data_len = 3;                  // The number of bytes to transmit back to the host
 
     int _comm_state = COMM_DIRTY;              // Current state of the communication channel
     uint8_t _rec_msg[20];                      // The input message.
@@ -47,7 +48,7 @@ class CommBus {
     bool _tx_waiting = false;                  // If we are waiting for the transmitter to finish
     unsigned long _tx_t0;                      // The time that a pending transmit was declared
     unsigned long _tx_wait_t0;                 // The time we started waiting on the transmitter
-    unsigned long _tx_wtime = (87*6);          // Time for one outgoing msg, in usec. 
+    unsigned long _tx_wtime;                   // Total transmit time for current msg (usec).
               
 
     uint8_t checksum(uint8_t *buf, int nbuf);
@@ -66,6 +67,7 @@ class CommBus {
     void led_off(int iled);
     void flash_led(int iled);
     void blink_led(int iled);
+    void show_data(int d);
     void lightshow();
 };
 
