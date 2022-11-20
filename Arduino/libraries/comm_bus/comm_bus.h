@@ -44,6 +44,7 @@ class CommBus {
     int _data_len = 0;                         // Data Length of current message being received
     bool _new_msg_waiting = false;             // If a new message is available.
     unsigned long _last_byte_time = micros();  // Time of last byte received -- usecs
+    unsigned long _msg_start_time = 0;         // Time the incomming message started
     bool _tx_pending = false;                  // If there is a transmit pending
     bool _tx_waiting = false;                  // If we are waiting for the transmitter to finish
     unsigned long _tx_t0;                      // The time that a pending transmit was declared
@@ -54,21 +55,17 @@ class CommBus {
     uint8_t checksum(uint8_t *buf, int nbuf);
     void prepare_outmsg();
     int read_serial_byte();
-    bool read_serial_bus();
+    void read_serial_bus();
     void manage_serial_bus();
 
-    // Debugging Stuff
-    int _leds[4] = {PIN_DB1, PIN_DB2, PIN_DB3, PIN_DB4};
-    unsigned long _ledtms[4] = {0, 0, 0, 0};
-    int _ledstate[4] = {0, 0, 0, 0};   // States: 0=off, 1=on, 2=flash, 3=bink
-    void debug(int z);
-    void manage_leds();
-    void led_on(int iled);
-    void led_off(int iled);
-    void flash_led(int iled);
-    void blink_led(int iled);
-    void show_data(int d);
-    void lightshow();
+    // LED management
+    unsigned long _ledtm = 0;
+    int _ledstate = 0 ;   // States: 0=off, 1=on, 2=flash, 3=bink
+    void manage_led();
+    void led_on();
+    void led_off();
+    void flash_led();
+    void blink_led();
 };
 
 #endif

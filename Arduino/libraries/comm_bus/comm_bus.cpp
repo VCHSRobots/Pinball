@@ -7,7 +7,7 @@
 #define PIN_LED 13               // Led to flash on msg received/sent
 #define BAUD_RATE 115200         // Baud rate of the transmitter
 #define BYTE_USEC 87             // Number of usecs per byte at BAUD_RATE
-#define TX_TIME_PAD 100          // Number of usecs to pad TX enable
+#define TX_TIME_PAD 80           // Number of usecs to pad TX enable
 
 // Constructs the CommBus object. Provide the node address and the
 // callback to be called when a message is received.
@@ -33,16 +33,13 @@ void CommBus::set_response(uint8_t *data, int n) {
 
 // Call this to enable communications with the host.
 void CommBus::begin() {
-  pinMode(PIN_DB1, OUTPUT);
-  pinMode(PIN_DB2, OUTPUT);
-  pinMode(PIN_DB3, OUTPUT);
-  pinMode(PIN_DB4, OUTPUT);
-  lightshow();
   pinMode(PIN_TX_ENABLE, OUTPUT);
   digitalWrite(PIN_TX_ENABLE, LOW);
+  pinMode(PIN_LED, OUTPUT);
+  digitalWrite(PIN_LED, LOW);
+  _ledstate = 0;
   Serial.begin(BAUD_RATE);
   prepare_outmsg();
-  for(int i = 0; i < 4; i++) led_off(i);
 }
 
 // Prepares the current output message.
@@ -59,30 +56,30 @@ void CommBus::prepare_outmsg() {
 
 // Call this as often as possible -- at least once per msec.
 void CommBus::update() {
-  manage_leds();   // Debugging, may be removed.
+  manage_led();   // Debugging, may be removed.
   if (_tx_waiting) {
     if (micros() - _tx_wait_t0 < _tx_wtime) return;
     digitalWrite(PIN_TX_ENABLE, LOW);
     _tx_waiting = false;
   }
   if (_tx_pending) {
+    flash_led();
     if (_new_response_pending) prepare_outmsg();
     if (micros() - _tx_t0 < 750) return;  // Must wait at least 0.5ms to start response.
     digitalWrite(PIN_TX_ENABLE, HIGH);
+    _tx_wait_t0 = micros();
     for(int i = 0; i < _output_data_len; i++) Serial.write(_output_data[i]);
     // Kludge... Here we should be able to do a Serial.flush(), but 
     // that takes too long (over 2.5ms).  Instead, we calculate how
     // long to keep the transmitter enabled, and then shut it down 
     _tx_pending = false;
     _tx_waiting = true;
-    _tx_wait_t0 = micros();
     _tx_wtime = (BYTE_USEC * _output_data_len) + TX_TIME_PAD;
     return;
   }
- 
+
   read_serial_bus();
   if (_new_msg_waiting) {
-    led_on(3);
     _new_msg_waiting = false;
     if (_rec_msg[0] == 'E' && _node_addr == _our_node_address) {
       // The message is for us!
@@ -113,27 +110,15 @@ int CommBus::read_serial_byte() {
   return -1;
 }
 
-void CommBus::show_data(int d) {
-  if (d & 0x08) led_on(0);
-  else led_off(0);
-  if (d & 0x04) led_on(1);
-  else led_off(1);
-  if (d & 0x02) led_on(2);
-  else led_off(2);
-  if (d & 0x01) led_on(3);
-  else led_off(3);
-}
-
 // Reads data off the serial bus. 
-bool CommBus::read_serial_bus() {
-  unsigned long tnow = micros();
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+void CommBus::read_serial_bus() {
   switch(_comm_state) {
      case COMM_DIRTY: {
-      //led_on(0);
-      led_off(1);
+      unsigned long tnow = micros();
       bool gotone = false;
       while (Serial.available()) {
-        int b = Serial.read();
+        Serial.read();
         _last_byte_time = tnow;
         gotone = true;
       }
@@ -144,29 +129,27 @@ bool CommBus::read_serial_bus() {
       return;
     }
     case COMM_READY: {
-      //led_off(0);
-      led_on(1);
       int b = read_serial_byte();
       if (b < 0) return;
       // It should be an 'E' or an 'e'.
       if (b != 'E' && b != 'e') {
         _comm_state = COMM_DIRTY;
-        //led_on(2);
         return;  
       }
+      _msg_start_time = micros();
       _rec_msg[0] = b;
       _imsg_ptr = 1;
       _comm_state = COMM_MSG_ADR;
     } // Note: we WANT to fall through here...
     case COMM_MSG_ADR: {
-      // if(tnow - _last_byte_time > 8000) {
-      //   _comm_state = COMM_DIRTY;
-      //   led_on(3);
-      //   return;
-      // }
+      // If the incomming message is taking to long, abort.
+      unsigned long tnow = micros();
+      if(tnow - _msg_start_time > 4000) {
+        _comm_state = COMM_DIRTY;
+         return;
+      }
       int b = read_serial_byte();
       if (b < 0) {
-        led_on(0);
         return;
       }
       _rec_msg[_imsg_ptr] = b;
@@ -176,11 +159,12 @@ bool CommBus::read_serial_bus() {
       _comm_state = COMM_MSG_DATA;
     }  // Note: we WANT to fall through here...
     case COMM_MSG_DATA: {
-      led_on(2);
-      // if(tnow - _last_byte_time > 8000) {
-      //   _comm_state = COMM_DIRTY;
-      //   return;
-      // }
+      // If the incomming message is taking to long, abort.
+      unsigned long tnow = micros();
+      if(tnow - _msg_start_time > 4000) {
+        _comm_state = COMM_DIRTY;
+         return;
+      }
       while(true) {
         if (_imsg_ptr >= _data_len + 2) {
           _comm_state = COMM_MSG_CKSUM;
@@ -193,20 +177,19 @@ bool CommBus::read_serial_bus() {
       }
     } // Note: we WANT to fall through here...
     case COMM_MSG_CKSUM: {
-      //led_on(3);
-      //if(tnow - _last_byte_time > 1500) {
-      // _comm_state = COMM_DIRTY;
-      //  return;
-      //}
+      // If the incomming message is taking to long, abort.
+      unsigned long tnow = micros();
+      if(tnow - _msg_start_time > 4000) {
+        _comm_state = COMM_DIRTY;
+         return;
+      }
       int b = read_serial_byte();
       if (b < 0) return;
       int cksum = checksum(_rec_msg, _imsg_ptr);
       if (cksum != b) {
         _comm_state = COMM_DIRTY;
-        led_on(3);
         return;
       }
-      //flash_led(3);
       _new_msg_waiting = true;
       _comm_state = COMM_READY;
       return;
@@ -214,82 +197,89 @@ bool CommBus::read_serial_bus() {
   }
 }
 
-// Debug Help
-
-void CommBus::debug(int z) {
-  if (z & 0x0001) digitalWrite(PIN_DB1, LOW);
-  else digitalWrite(PIN_DB1, HIGH);
-  if (z & 0x0002) digitalWrite(PIN_DB2, LOW);
-  else digitalWrite(PIN_DB2, HIGH);
-  if (z & 0x0004) digitalWrite(PIN_DB3, LOW);
-  else digitalWrite(PIN_DB3, HIGH);
-  if (z & 0x0008) digitalWrite(PIN_DB4, LOW);
-  else digitalWrite(PIN_DB4, HIGH); 
-}
-
-void CommBus::manage_leds() {
+void CommBus::manage_led() {
   unsigned long tnow = millis();
-  for(int i = 0; i < 4; i++) {
-    if (_ledstate[i] == 0) digitalWrite(_leds[i], HIGH);
-    if (_ledstate[i] == 1) digitalWrite(_leds[i], LOW);
-    if (_ledstate[i] == 2) {
-      if (tnow - _ledtms[i] > 140) {
-        _ledstate[i] = 0;
-        digitalWrite(_leds[i], HIGH);
-        return;
-      }
-      if (tnow - _ledtms[i] > 70) digitalWrite(_leds[i], HIGH);
-      else digitalWrite(_leds[i], LOW);
+  if (_ledstate == 0) digitalWrite(PIN_LED, LOW);
+  if (_ledstate == 1) digitalWrite(PIN_LED, HIGH);
+  if (_ledstate == 2) {
+    if (tnow - _ledtm > 140) {
+      _ledstate = 0;
+      digitalWrite(PIN_LED, LOW);
+      return;
     }
-    if (_ledstate[i] == 3) {
-      unsigned long telp = tnow - _ledtms[i];
-      if (telp > 200) { 
-        digitalWrite(_leds[i], LOW);
-        _ledtms[i] = tnow;
-      } else {
-        if (telp < 100) digitalWrite(_leds[i], LOW);
-        else digitalWrite(_leds[i], HIGH);
-      }
+    if (tnow - _ledtm > 70) digitalWrite(PIN_LED, LOW);
+    else digitalWrite(PIN_LED, HIGH);
+  }
+  if (_ledstate == 3) {
+    unsigned long telp = tnow - _ledtm;
+    if (telp > 200) { 
+      digitalWrite(PIN_LED, HIGH);
+      _ledtm = tnow;
+    } else {
+      if (telp < 100) digitalWrite(PIN_LED, HIGH);
+      else digitalWrite(PIN_LED, LOW);
     }
   }
 }
 
-void CommBus::led_on(int iled) {
-  digitalWrite(_leds[iled], LOW);
-  _ledstate[iled] = 1;
+void CommBus::led_on() {
+  digitalWrite(PIN_LED, HIGH);
+  _ledstate = 1;
 }
 
-void CommBus::led_off(int iled) {
-  digitalWrite(_leds[iled], HIGH);
-  _ledstate[iled] = 0;
+void CommBus::led_off() {
+  digitalWrite(PIN_LED, LOW);
+  _ledstate = 0;
 }
 
-void CommBus::flash_led(int iled) {
-  if(_ledstate[iled] == 2) return;
-  digitalWrite(_leds[iled], LOW);
-  _ledtms[iled] = millis();
-_ledstate[iled] = 2;
+void CommBus::flash_led() {
+  if (_ledstate == 2) return;
+  digitalWrite(PIN_LED, HIGH);
+  _ledtm = millis();
+  _ledstate = 2;
 }
 
-void CommBus::blink_led(int iled) {
-  if(_ledstate[iled] == 3) return;
-  digitalWrite(_leds[iled], LOW);
-  _ledtms[iled] = millis();
-  _ledstate[iled] = 3;
+void CommBus::blink_led() {
+  if(_ledstate == 3) return;
+  digitalWrite(PIN_LED, HIGH);
+  _ledtm = millis();
+  _ledstate = 3;
 }
 
-void CommBus::lightshow() {
-  debug(0x0F);
-  delay(100);
-  debug(0x01);
-  delay(100);
-  debug(0x02);
-  delay(100);
-  debug(0x04);
-  delay(100);
-  debug(0x08);
-  delay(100);
-  debug(0x00);
-}
+// void CommBus::show_data(int d) {
+//   if (d & 0x08) led_on(0);
+//   else led_off(0);
+//   if (d & 0x04) led_on(1);
+//   else led_off(1);
+//   if (d & 0x02) led_on(2);
+//   else led_off(2);
+//   if (d & 0x01) led_on(3);
+//   else led_off(3);
+// }
+
+// void CommBus::debug(int z) {
+//   if (z & 0x0001) digitalWrite(PIN_DB1, LOW);
+//   else digitalWrite(PIN_DB1, HIGH);
+//   if (z & 0x0002) digitalWrite(PIN_DB2, LOW);
+//   else digitalWrite(PIN_DB2, HIGH);
+//   if (z & 0x0004) digitalWrite(PIN_DB3, LOW);
+//   else digitalWrite(PIN_DB3, HIGH);
+//   if (z & 0x0008) digitalWrite(PIN_DB4, LOW);
+//   else digitalWrite(PIN_DB4, HIGH); 
+// }
+
+// void CommBus::lightshow() {
+//   debug(0x0F);
+//   delay(100);
+//   debug(0x01);
+//   delay(100);
+//   debug(0x02);
+//   delay(100);
+//   debug(0x04);
+//   delay(100);
+//   debug(0x08);
+//   delay(100);
+//   debug(0x00);
+// }
 
 

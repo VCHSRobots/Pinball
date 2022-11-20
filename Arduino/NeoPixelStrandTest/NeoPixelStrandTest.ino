@@ -18,9 +18,12 @@
 // Which pin on the Arduino is connected to the NeoPixels?
 // On a Trinket or Gemma we suggest changing this to 1:
 #define LED_PIN    12
+#define B1_PIN      5
+#define B2_PIN      6
+#define B3_PIN      7
 
 // How many NeoPixels are attached to the Arduino?
-#define LED_COUNT 50
+#define LED_COUNT 200
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -36,35 +39,72 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // setup() function -- runs once at startup --------------------------------
 
+int input_pins[3] = {B1_PIN, B2_PIN, B3_PIN};
+int input_state[3] = {LOW, LOW, LOW};
+char sline[100];
+
 void setup() {
-  // These lines are specifically to support the Adafruit Trinket 5V 16 MHz.
-  // Any other board, you can remove this part (but no harm leaving it):
-#if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
-  clock_prescale_set(clock_div_1);
-#endif
-  // END of Trinket-specific code.
+  pinMode(B1_PIN, INPUT_PULLUP);
+  pinMode(B2_PIN, INPUT_PULLUP);
+  pinMode(B3_PIN, INPUT_PULLUP);
 
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
   strip.setBrightness(255); // Set BRIGHTNESS to about 1/5 (max = 255)
+  Serial.begin(115200);
+  Serial.println("Strip Test and Timing.");
 }
 
+void report_times(unsigned long t0, unsigned long t1) {
+  unsigned long telp = t1 - t0;
+  sprintf(sline, "Elapeded time to show %d pixels = %ld usec", LED_COUNT, telp);
+  Serial.println(sline);
+}
 
-// loop() function -- runs repeatedly as long as board is on ---------------
+void check_buttons() {
+  for (int i = 0; i < 3; i++) {
+    int pin = input_pins[i];
+    int b = digitalRead(pin);
+    if (b == LOW) input_state[i] = LOW;
+    else input_state[i] = HIGH;
+  }
+}
 
 void loop() {
-  // Fill along the length of the strip in various colors...
-  colorWipe(strip.Color(255,   0,   0), 50); // Red
-  colorWipe(strip.Color(  0, 255,   0), 50); // Green
-  colorWipe(strip.Color(  0,   0, 255), 50); // Blue
+  unsigned long t0, t1;
+  t0 = micros();
+  check_buttons();
+  t1 = micros();
+  unsigned long telp = t1 - t0;
+  sprintf(sline, "Elapsed time to check 3 buttons = %ld usec", telp);
+  Serial.println(sline);
 
-  // Do a theater marquee effect in various colors...
-  theaterChase(strip.Color(127, 127, 127), 50); // White, half brightness
-  theaterChase(strip.Color(127,   0,   0), 50); // Red, half brightness
-  theaterChase(strip.Color(  0,   0, 127), 50); // Blue, half brightness
+  colorWipe(strip.Color(172, 0, 0), 0);
+  strip.setPixelColor(180, 0x00FF00);
+  t0 = micros();
+  strip.show();
+  t1 = micros();
+  report_times(t0, t1);
+  delay(1000);
+  strip.setPixelColor(180, 0xFF0000);
+  t0 = micros();
+  strip.show();
+  t1 = micros();
+  report_times(t0, t1);
+  delay(1000);
 
-  rainbow(10);             // Flowing rainbow cycle along the whole strip
-  theaterChaseRainbow(50); // Rainbow-enhanced theaterChase variant
+  // // Fill along the length of the strip in various colors...
+  // colorWipe(strip.Color(255,   0,   0), 50); // Red
+  // colorWipe(strip.Color(  0, 255,   0), 50); // Green
+  // colorWipe(strip.Color(  0,   0, 255), 50); // Blue
+
+  // // Do a theater marquee effect in various colors...
+  // theaterChase(strip.Color(127, 127, 127), 50); // White, half brightness
+  // theaterChase(strip.Color(127,   0,   0), 50); // Red, half brightness
+  // theaterChase(strip.Color(  0,   0, 127), 50); // Blue, half brightness
+
+  // rainbow(10);             // Flowing rainbow cycle along the whole strip
+  // theaterChaseRainbow(50); // Rainbow-enhanced theaterChase variant
 }
 
 

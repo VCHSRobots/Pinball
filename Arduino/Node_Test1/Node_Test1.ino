@@ -3,7 +3,7 @@
 
 #include "comm_bus.h"
 
-#define NODE_ADDRESS 2
+#define NODE_ADDRESS 4
 #define PIN_LED1 13
 
 void on_receive(byte *, int);
