@@ -108,7 +108,11 @@ CheckSum:
 * Calculate by adding all bytes in the message together and then only keeping the least significant byte.
 * The checksum itself is not part of the calculation.
 
-
+## Timming Tests and Measurements
+1. To transmit a 0-byte payload, and receive a 3 byte payload requries about 1.7 ms.  Therefore, assume about 3-5 ms per message.  7 nodes, is about 40ms. 
+2. To do a show() on 200 neo pixels takes somewhere between 0.9 and 2.2 ms.   For 10 neo pixels,
+it still takes as much as a millisecond, but average time is around 0.5 ms.
+3. To sense 3 inputs, in a counting loop and do something simple with the data takes 16 usecs.
 
 
 

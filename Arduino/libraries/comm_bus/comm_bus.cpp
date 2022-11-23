@@ -42,6 +42,13 @@ void CommBus::begin() {
   prepare_outmsg();
 }
 
+// Returns a flag, that if true, means that the update rountine needs to be
+// called very fast, at least once every 200 usec.  If not busy, then the
+// update routine can be called less frequently, say at leash once every 2 msec.
+bool CommBus::is_busy() {
+  return _is_busy;
+}
+
 // Prepares the current output message.
 void CommBus::prepare_outmsg() {
   _output_data[0] = 'e';
@@ -61,8 +68,10 @@ void CommBus::update() {
     if (micros() - _tx_wait_t0 < _tx_wtime) return;
     digitalWrite(PIN_TX_ENABLE, LOW);
     _tx_waiting = false;
+    _is_busy = false;
   }
   if (_tx_pending) {
+    _is_busy = true;
     flash_led();
     if (_new_response_pending) prepare_outmsg();
     if (micros() - _tx_t0 < 750) return;  // Must wait at least 0.5ms to start response.
@@ -82,6 +91,7 @@ void CommBus::update() {
   if (_new_msg_waiting) {
     _new_msg_waiting = false;
     if (_rec_msg[0] == 'E' && _node_addr == _our_node_address) {
+      _is_busy = true;
       // The message is for us!
       _tx_pending = true;
       _tx_t0 = micros();
@@ -115,6 +125,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 void CommBus::read_serial_bus() {
   switch(_comm_state) {
      case COMM_DIRTY: {
+      _is_busy = false;
       unsigned long tnow = micros();
       bool gotone = false;
       while (Serial.available()) {
@@ -129,6 +140,7 @@ void CommBus::read_serial_bus() {
       return;
     }
     case COMM_READY: {
+      _is_busy = false;
       int b = read_serial_byte();
       if (b < 0) return;
       // It should be an 'E' or an 'e'.
@@ -142,10 +154,12 @@ void CommBus::read_serial_bus() {
       _comm_state = COMM_MSG_ADR;
     } // Note: we WANT to fall through here...
     case COMM_MSG_ADR: {
+      _is_busy = true;
       // If the incomming message is taking to long, abort.
       unsigned long tnow = micros();
       if(tnow - _msg_start_time > 4000) {
         _comm_state = COMM_DIRTY;
+        _is_busy = false;
          return;
       }
       int b = read_serial_byte();
@@ -163,6 +177,7 @@ void CommBus::read_serial_bus() {
       unsigned long tnow = micros();
       if(tnow - _msg_start_time > 4000) {
         _comm_state = COMM_DIRTY;
+        _is_busy = false;
          return;
       }
       while(true) {
@@ -181,6 +196,7 @@ void CommBus::read_serial_bus() {
       unsigned long tnow = micros();
       if(tnow - _msg_start_time > 4000) {
         _comm_state = COMM_DIRTY;
+        _is_busy = false;
          return;
       }
       int b = read_serial_byte();
@@ -188,6 +204,7 @@ void CommBus::read_serial_bus() {
       int cksum = checksum(_rec_msg, _imsg_ptr);
       if (cksum != b) {
         _comm_state = COMM_DIRTY;
+        _is_busy = false;
         return;
       }
       _new_msg_waiting = true;

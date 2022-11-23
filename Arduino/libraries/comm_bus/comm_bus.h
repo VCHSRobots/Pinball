@@ -27,6 +27,7 @@ class CommBus {
     void begin();
     void update();
     void set_response(uint8_t *msg, int n);
+    bool is_busy(); 
 
   private:
     int _our_node_address;                     // The address of our node
@@ -50,6 +51,7 @@ class CommBus {
     unsigned long _tx_t0;                      // The time that a pending transmit was declared
     unsigned long _tx_wait_t0;                 // The time we started waiting on the transmitter
     unsigned long _tx_wtime;                   // Total transmit time for current msg (usec).
+    bool _is_busy = false;                     // True if the bus is busy, and updates should be faster.
               
 
     uint8_t checksum(uint8_t *buf, int nbuf);
