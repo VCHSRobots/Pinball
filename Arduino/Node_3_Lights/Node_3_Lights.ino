@@ -1,6 +1,9 @@
 /*
  * Pinball Machine, EPIC Robotz, Fall 2022
- * Light Control Unit (In PlayField and Score Box)
+ * Light Control Unit 
+ * 
+ * *** Configured for the Playfield
+ * *** Address = 3
  * 
  * This module is for the Light Control Unit in the score box.  The hardware is
  * set up to control six 12v lamps, and one neostrip, 104 LEDs long. 
@@ -85,8 +88,8 @@
  *  
  */
 
-#define NODE_ADDRESS 2
-#define NPIXELS 104
+#define NODE_ADDRESS 3
+#define NPIXELS 30
 #define NLAMPS 6
 
 #include <Adafruit_NeoPixel.h>
@@ -149,10 +152,10 @@ uint8_t lamp_flash_wait[] = {0, 0, 0, 0, 0, 0};
 uint8_t lamp_flash_istep[] = {0, 0, 0, 0, 0, 0};
 
 // Inputs to the Neo Pixel Operations
-//> uint32_t neo_c1[NPIXELS];
-//> uint32_t neo_c2[NPIXELS];
-//> uint8_t neo_c1steps[NPIXELS];
-//> uint8_t neo_c2steps[NPIXELS];
+uint32_t neo_c1[NPIXELS];
+uint32_t neo_c2[NPIXELS];
+uint8_t neo_c1steps[NPIXELS];
+uint8_t neo_c2steps[NPIXELS];
 uint32_t neo_c1_animation = 0x0000ff;
 uint32_t neo_c2_animation = 0x00ff00;
 uint8_t neo_n1 = 1;
@@ -162,7 +165,7 @@ uint8_t neo_wait = 8;
 // Status keepers for Neo Pixels
 uint8_t neo_mode = NEO_SINGLE;
 bool neo_show_pending = false;
-//> uint8_t neo_istep[NPIXELS];   // Where we are in the loop for each pixel.
+uint8_t neo_istep[NPIXELS];   // Where we are in the loop for each pixel.
 int neo_anim_iprog = 0;       // Progress on the anaimation
 int neo_anim_steps = 0;       // Number of steps for anaimations
 int neo_anim_iside = 0; 
@@ -246,33 +249,33 @@ bool process_command() {
                 uint32_t color = convert_to_rgb(cmd_bytes + 1);
                 neo_mode = NEO_SINGLE;
                 for(int i = 0; i < NPIXELS; i++) {
-                    //> neo_c1[i] = color;
-                    //> neo_c2[i] = color;
-                    //> neo_c1steps[i] = 0;
-                    //> neo_c2steps[i] = 0;
-                    //> neo_istep[i] = 0;
+                    neo_c1[i] = color;
+                    neo_c2[i] = color;
+                    neo_c1steps[i] = 0;
+                    neo_c2steps[i] = 0;
+                    neo_istep[i] = 0;
                     strip.setPixelColor(i, color);
                 }
                 neo_show_pending = true;
             }
             return true;
-        //> case CMD_NEO_SINGLE: {
-        //>         // Arguments:
-        //>         // cmd, c1-r, c1-g, c1-b, c2-r, c2-g, c2-b, indx, c1-steps, c2-steps
-        //>         //   0,    1,    2,    3,    4,    5,    6,    7,        8,        9
-        //>         neo_mode = NEO_SINGLE;
-        //>         int indx = cmd_bytes[7]; 
-        //>         if (indx < 0 || indx >= NPIXELS) {
-        //>             // err_count++;  No longer an error. Indicates desire to return to single's mode.
-        //>             return true;
-        //>         }
-        //>         neo_c1[indx] = convert_to_rgb(cmd_bytes + 1);
-        //>         neo_c2[indx] = convert_to_rgb(cmd_bytes + 4);
-        //>         neo_c1steps[indx] = cmd_bytes[8] & 0x007F;
-        //>         neo_c2steps[indx] = cmd_bytes[9] & 0x007F;
-        //>         neo_istep[indx] = 0;
-        //>     }
-        //>     return true;
+        case CMD_NEO_SINGLE: {
+                // Arguments:
+                // cmd, c1-r, c1-g, c1-b, c2-r, c2-g, c2-b, indx, c1-steps, c2-steps
+                //   0,    1,    2,    3,    4,    5,    6,    7,        8,        9
+                neo_mode = NEO_SINGLE;
+                int indx = cmd_bytes[7]; 
+                if (indx < 0 || indx >= NPIXELS) {
+                    // err_count++;  No longer an error. Indicates desire to return to single's mode.
+                    return true;
+                }
+                neo_c1[indx] = convert_to_rgb(cmd_bytes + 1);
+                neo_c2[indx] = convert_to_rgb(cmd_bytes + 4);
+                neo_c1steps[indx] = cmd_bytes[8] & 0x007F;
+                neo_c2steps[indx] = cmd_bytes[9] & 0x007F;
+                neo_istep[indx] = 0;
+            }
+            return true;
         case CMD_NEO_SOLID: {
                 // Arguments:
                 // cmd, c-r, c-g, c-b
@@ -410,13 +413,13 @@ void load_response() {
 // --------------------------------------------------------------------
 // Setup the NeoPixel Strip
 void neo_setup() {   
-  //> for(int i = 0; i < NPIXELS; i++) {
-  //>   neo_c1[i] = 0x000000;
-  //>   neo_c2[i] = 0x000000;
-  //>   neo_c1steps[i] = 0;
-  //>   neo_c2steps[i] = 0;
-  //>   neo_istep[i] = 0;
-  //> }
+  for(int i = 0; i < NPIXELS; i++) {
+    neo_c1[i] = 0x000000;
+    neo_c2[i] = 0x000000;
+    neo_c1steps[i] = 0;
+    neo_c2steps[i] = 0;
+    neo_istep[i] = 0;
+  }
   strip.begin();  
   strip.setBrightness(255);          
   strip.clear(); 
@@ -455,33 +458,33 @@ void setup() {
     bus.begin();
 }
 
-//> // --------------------------------------------------------------------
-//> // Use this to process the neo-singles mode.  For time-slicing,
-//> // parts of the strip can be processed separately.
-//> void neo_set_singles(int indx0, int np) {
-//>     for(int i = 0; i < np; i++) {
-//>         int ip = indx0 + i;
-//>         uint8_t bstep = neo_istep[ip];
-//>         int istep = bstep & 0x007F;
-//>         int idir  = (bstep >> 7) & 0x0001;
-//>         istep++;
-//>         if (idir == 0) {
-//>             if(istep >= neo_c1steps[ip]) {
-//>                 idir = 1;
-//>                 istep = 0;
-//>                 strip.setPixelColor(ip, neo_c2[ip]);
-//>             }
-//>         } else {
-//>             if(istep >= neo_c2steps[ip]) {
-//>                 idir = 0;
-//>                 istep = 0;
-//>                 strip.setPixelColor(ip, neo_c1[ip]);
-//>             }  
-//>         }
-//>         neo_istep[ip] = ((idir << 7) & 0x0080) | (istep & 0x007F);
-//>     }
-//>     neo_show_pending = true;
-//> }
+// --------------------------------------------------------------------
+// Use this to process the neo-singles mode.  For time-slicing,
+// parts of the strip can be processed separately.
+void neo_set_singles(int indx0, int np) {
+    for(int i = 0; i < np; i++) {
+        int ip = indx0 + i;
+        uint8_t bstep = neo_istep[ip];
+        int istep = bstep & 0x007F;
+        int idir  = (bstep >> 7) & 0x0001;
+        istep++;
+        if (idir == 0) {
+            if(istep >= neo_c1steps[ip]) {
+                idir = 1;
+                istep = 0;
+                strip.setPixelColor(ip, neo_c2[ip]);
+            }
+        } else {
+            if(istep >= neo_c2steps[ip]) {
+                idir = 0;
+                istep = 0;
+                strip.setPixelColor(ip, neo_c1[ip]);
+            }  
+        }
+        neo_istep[ip] = ((idir << 7) & 0x0080) | (istep & 0x007F);
+    }
+    neo_show_pending = true;
+}
 
 // --------------------------------------------------------------------
 // Sets the pixels for wiping.
@@ -578,17 +581,17 @@ void neo_blink(int indx0, int n) {
 void manage_neo(int ibatch) {
     if (ibatch < 0) return;
     switch(neo_mode) {
-        //> case NEO_SINGLE: {
-        //>         int np = 15;
-        //>         int indx = ibatch * np;
-        //>         if (indx + np >= NPIXELS) {
-        //>             np = NPIXELS - indx;
-        //>         }
-        //>         if (np <= 0) return;
-        //>         neo_set_singles(indx, np);
-        //>         neo_show_pending = true;
-        //>     }
-        //>     return;
+        case NEO_SINGLE: {
+                int np = 15;
+                int indx = ibatch * np;
+                if (indx + np >= NPIXELS) {
+                    np = NPIXELS - indx;
+                }
+                if (np <= 0) return;
+                neo_set_singles(indx, np);
+                neo_show_pending = true;
+            }
+            return;
         case NEO_SOLID: 
             return;
         case NEO_WIPE: {
@@ -736,5 +739,3 @@ void loop() {
     }
 }
  
-
-
