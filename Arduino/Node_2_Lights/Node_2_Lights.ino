@@ -385,26 +385,26 @@ bool process_command() {
 // --------------------------------------------------------------------
 // Loads the response for the next command.
 void load_response() {
-    static int max_ram = 0;
+    //static int max_ram = 0;
     uint8_t response[10];
 
     response[0] = cmd_count & 0x00FF;
     response[1] = err_count & 0x00FF;
 
-    int ram = freeRam();
-    if(ram > max_ram) max_ram = ram;
-    response[2] = (max_ram >> 8) & 0x00FF;
-    response[3] = max_ram & 0x00FF;
+    // int ram = freeRam();
+    // if(ram > max_ram) max_ram = ram;
+    // response[2] = (max_ram >> 8) & 0x00FF;
+    // response[3] = max_ram & 0x00FF;
 
-    response[4] = (elp_timmer >> 24) & 0x00FF;
-    response[5] = (elp_timmer >> 16) & 0x00FF;
-    response[6] = (elp_timmer >> 8) & 0x00FF;
-    response[7] = elp_timmer & 0x00FF;
+    // response[4] = (elp_timmer >> 24) & 0x00FF;
+    // response[5] = (elp_timmer >> 16) & 0x00FF;
+    // response[6] = (elp_timmer >> 8) & 0x00FF;
+    // response[7] = elp_timmer & 0x00FF;
 
-    response[8] = (debug_counter >> 8) & 0x00FF;
-    response[9] = debug_counter & 0x00FF;
+    // response[8] = (debug_counter >> 8) & 0x00FF;
+    // response[9] = debug_counter & 0x00FF;
 
-    bus.set_response(response, 10);
+    bus.set_response(response, 2);
 }
 
 // --------------------------------------------------------------------
@@ -730,9 +730,9 @@ void loop() {
         //stop_timmer();
     }
     if (sub_frame >= 40 && sub_frame < 50) {
-        start_timmer();
+        //start_timmer();
         manage_lamps(sub_frame - 40);
-        stop_timmer();
+        //stop_timmer();
     }
 }
  
