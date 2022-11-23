@@ -9,10 +9,6 @@
 #include <Arduino.h>
 
 #define PIN_TX_ENABLE 2 // Pin to enable/disable RS-485 transmitter.
-#define PIN_DB1 14      // Debug LED, Labeled as A0
-#define PIN_DB2 15      // Debug LED, Labeled as A1
-#define PIN_DB3 16      // Debug LED, Labeled as A2
-#define PIN_DB4 17      // Debug LED, labeled as A3
 
 // Communication states...
 #define COMM_DIRTY     0 // The channel is dirty.  Waiting for reset

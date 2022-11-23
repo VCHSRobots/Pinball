@@ -32,16 +32,17 @@
  * well under 300 usecs, except for subframe zero which might take 2 msecs.
  * 
  * Commands and arguments:   
- * 00 (0)  NOP           No operation, just getting status.
- * 01 (3)  NEO_RESET     NeoPixel Reset Args: Color(3)
- * 02 (9)  NEO_SINGLE    NeoPixel Single: C1(3), C2(3), Index(1), C1-Wait(1), C2-Wait(1)
- * 03 (3)  NEO_SOLID     NeoPixel Solid Args: Color(3)
- * 04 (7)  NEO_WIPE      NeoPixel Wipe Args: C1(3), C2(3), Wait(1)
- * 05 (8)  NEO_CHASE     NeoPixel Chase Args: C1(3), C2(3), N(1), Wait(1)
- * 06 (9)  NEO_BLINK     NepPixel Blink Args: C1(3), C2(3), N1(1), N2(1), Wait(1)
- * 07 (2)  LAMP_SOLID    Lamp Solid Args: LampMask(1), Brightness(1)
- * 08 (3)  LAMP_FLASH    Lamp Flash Args: LampMask(1), Brightness(1), Wait(1)
- * 09 (4)  LAMP_MODULATE Lamp Modulate Args: LampMask(1), B1(1), B2(1), Steps(1)
+ *   0 (0)  NOP           No operation, just getting status.
+ * 100 (1)  ECHO          args: one byte to put in the echo registor
+ *   1 (3)  NEO_RESET     NeoPixel Reset Args: Color(3)
+ *   2 (9)  NEO_SINGLE    NeoPixel Single: C1(3), C2(3), Index(1), C1-Wait(1), C2-Wait(1)
+ *   3 (3)  NEO_SOLID     NeoPixel Solid Args: Color(3)
+ *   4 (7)  NEO_WIPE      NeoPixel Wipe Args: C1(3), C2(3), Wait(1)
+ *   5 (8)  NEO_CHASE     NeoPixel Chase Args: C1(3), C2(3), N(1), Wait(1)
+ *   6 (9)  NEO_BLINK     NepPixel Blink Args: C1(3), C2(3), N1(1), N2(1), Wait(1)
+ *   7 (2)  LAMP_SOLID    Lamp Solid Args: LampMask(1), Brightness(1)
+ *   8 (3)  LAMP_FLASH    Lamp Flash Args: LampMask(1), Brightness(1), Wait(1)
+ *   9 (4)  LAMP_MODULATE Lamp Modulate Args: LampMask(1), B1(1), B2(1), Steps(1)
  * 
  * The above arguments are defined as follows:
  *   Color, C1, and C2: Three bytes: R, G, B
@@ -111,16 +112,17 @@
 #define PIN_DB4 17
 
 // Define the commands
-#define CMD_NOP           0x00 
-#define CMD_NEO_RESET     0x01
-#define CMD_NEO_SINGLE    0x02
-#define CMD_NEO_SOLID     0x03
-#define CMD_NEO_WIPE      0x04
-#define CMD_NEO_CHASE     0x05
-#define CMD_NEO_BLINK     0x06
-#define CMD_LAMP_SOLID    0x07
-#define CMD_LAMP_FLASH    0x08
-#define CMD_LAMP_MODULATE 0x09
+#define CMD_NOP             0 
+#define CMD_ECHO          100
+#define CMD_NEO_RESET       1
+#define CMD_NEO_SINGLE      2
+#define CMD_NEO_SOLID       3
+#define CMD_NEO_WIPE        4
+#define CMD_NEO_CHASE       5
+#define CMD_NEO_BLINK       6
+#define CMD_LAMP_SOLID      7
+#define CMD_LAMP_FLASH      8
+#define CMD_LAMP_MODULATE   9
 
 // Define Modes for Neo Pixels
 #define NEO_SINGLE 0
@@ -178,6 +180,7 @@ uint8_t cmd_bytes[16];
 int cmd_bytes_len = 0;
 uint16_t cmd_count = 0;
 uint16_t err_count = 0;
+uint8_t echo_reg = 0;
 
 // Time keeping, and main loop stuff
 uint32_t last_frame_time = millis();  // The time at that last frame started
@@ -241,7 +244,12 @@ bool process_command() {
     if (cmd_bytes_len <= 0) return false;
     int cmd = cmd_bytes[0];
     switch(cmd) {
-        case CMD_NOP:  break; 
+        case CMD_NOP:  
+            return true;
+        case CMD_ECHO: {
+                echo_reg = cmd_bytes[1];
+            }
+            return true;
         case CMD_NEO_RESET: {
                 // Arguments:
                 // cmd, c-r, c-b, c-b
@@ -389,25 +397,26 @@ bool process_command() {
 // Loads the response for the next command.
 void load_response() {
     //static int max_ram = 0;
-    uint8_t response[10];
+    uint8_t response[12];
 
     response[0] = cmd_count & 0x00FF;
     response[1] = err_count & 0x00FF;
+    response[2] = echo_reg;
 
     // int ram = freeRam();
     // if(ram > max_ram) max_ram = ram;
-    // response[2] = (max_ram >> 8) & 0x00FF;
-    // response[3] = max_ram & 0x00FF;
+    // response[3] = (max_ram >> 8) & 0x00FF;
+    // response[4] = max_ram & 0x00FF;
 
-    // response[4] = (elp_timmer >> 24) & 0x00FF;
-    // response[5] = (elp_timmer >> 16) & 0x00FF;
-    // response[6] = (elp_timmer >> 8) & 0x00FF;
-    // response[7] = elp_timmer & 0x00FF;
+    // response[5] = (elp_timmer >> 24) & 0x00FF;
+    // response[6] = (elp_timmer >> 16) & 0x00FF;
+    // response[7] = (elp_timmer >> 8) & 0x00FF;
+    // response[8] = elp_timmer & 0x00FF;
 
-    // response[8] = (debug_counter >> 8) & 0x00FF;
-    // response[9] = debug_counter & 0x00FF;
+    // response[9] = (debug_counter >> 8) & 0x00FF;
+    // response[10] = debug_counter & 0x00FF;
 
-    bus.set_response(response, 2);
+    bus.set_response(response, 3);
 }
 
 // --------------------------------------------------------------------
