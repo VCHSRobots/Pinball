@@ -1,6 +1,9 @@
 /*
  * Pinball Machine, EPIC Robotz, Fall 2022
- * Light Control Unit (In PlayField and Score Box)
+ * Light Control Unit
+ * 
+ * *** Configured for the Score Boxd
+ * *** Address = 2
  * 
  * This module is for the Light Control Unit in the score box.  The hardware is
  * set up to control six 12v lamps, and one neostrip, 104 LEDs long. 
