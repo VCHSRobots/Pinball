@@ -114,6 +114,14 @@ CheckSum:
 it still takes as much as a millisecond, but average time is around 0.5 ms.
 3. To sense 3 inputs, in a counting loop and do something simple with the data takes 16 usecs.
 
+## Setting up Raspberry and Python Environment
+We keep library and shard python code in a libaray, in the folder /home/pi/pb/lib.  This folder 
+must be put in the python path for loading modules.  Do this by coping pinball.pth to 
+/home/pi/.local/lib/python3.9/site-packages
+
+ALso, edit the .bashrc file and add following to last line:
+
+PATH=/home/pi/pb/bin:$PATH
 
 
 

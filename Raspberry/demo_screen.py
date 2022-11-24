@@ -1,4 +1,4 @@
-# Pinball Machine Project, EPIX Robotz, Fall 2022
+# Pinball Machine Project, EPIC Robotz, Fall 2022
 #
 # Screen Demo
 
