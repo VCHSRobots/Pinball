@@ -12,6 +12,7 @@ import time
 import sys
 import os
 from pb_log import log
+import common
 
 class Score():
     ''' Keeps track of the current score. '''
@@ -129,7 +130,7 @@ class ScreenRobotParts():
     '''Class to manage drawing the robot animation.'''
     def __init__(self):
         self._partsurfaces = []
-        if sys.platform == "linux": self._partpath = "/home/pi/pb/assets/"
+        if common.platform() == "real": self._partpath = "/home/pi/pb/assets/"
         else: self._partpath = "assets"
         self._partfiles = ["RobotParts_1.gif", "RobotParts_2.gif", "RobotParts_3.gif", "RobotParts_4.gif",
                            "RobotParts_5.gif", "RobotParts_6.gif", "RobotParts_7.gif"]
@@ -158,7 +159,7 @@ class Screen():
 
     def __init__(self):
         pyg.init()
-        if sys.platform == "linux":
+        if common.platform() == "real":
             self._size = (0, 0)
             self._screen = pyg.display.set_mode(self._size, pyg.HWSURFACE | pyg.FULLSCREEN | pyg.NOFRAME)
         else:
@@ -186,6 +187,18 @@ class Screen():
     def score(self):
         return self._score
 
+    def reset_score(self):
+        self._score.main_score = 0 
+        self._score.number_of_balls = 0 
+        self._score.high_score = 0 
+        self._score.game_phase = ""
+        self._score.game_hint1 = ""
+        self._score.game_hint2 = ""
+        self._score.game_hint3 = ""
+        self._score.err_msg = ""
+        self._score.robot_parts = 0 
+        self._score.day = 0
+
     def report_score(self):
         print(f"Main Score: {self._score.main_score}")
         print(f"High Score: {self._score.high_score}")
@@ -208,10 +221,7 @@ class Screen():
             if k == "ErrMsg": sb.set_text(self._score.err_msg)
       
     def update(self):
-        '''Updates the screen.  Returns false if the user wants to quit.'''
-        pyg.event.pump()
-        for e in pyg.event.get():
-            if e.type == pyg.QUIT or (e.type == pyg.KEYUP and e.key == pyg.K_ESCAPE): return False
+        '''Updates the screen.'''
         self._set_text()
         self._screen.fill((21, 61, 122))
         for ename in self._elements:
@@ -229,6 +239,11 @@ if __name__ == "__main__" :
     ipart_cntr = 0
     while(True):
         time.sleep(0.1)
+        pyg.event.pump()
+        for e in pyg.event.get():
+            if e.type == pyg.QUIT or (e.type == pyg.KEYUP and e.key == pyg.K_ESCAPE): 
+                pyg.quit()
+                sys.exit() 
         cntr += 1
         scrn.score().main_score = cntr
         scrn.score().number_of_balls = 7
@@ -238,8 +253,5 @@ if __name__ == "__main__" :
         if ipart_cntr >= 0:
             scrn.score().robot_parts += 1 
             if scrn.score().robot_parts > 8: scrn.score().robot_parts = 0
-        if not scrn.update():
-            pyg.quit() 
-            sys.exit() 
-
+        scrn.update()
     

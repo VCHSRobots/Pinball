@@ -4,7 +4,13 @@
 
 import os 
 import time
-log_file_path = "/home/pi/pb/logs"
+import common 
+
+if common.platform() == "real":
+    log_file_path = "/home/pi/pb/logs"
+else:
+    log_file_path = "C:\\Users\\dalbr\\Documents\\Projects\\Epic_Robots_2023\\PinballMachine\\Software\\logs"
+
 logfile = None
 logdebug = True  # if should be logging debug messages
 logterminal = True  # if should be sending to the terminal
@@ -16,26 +22,30 @@ def _formatted_time():
 
 def log_init():
     '''Initialize the logger. Must be called at least once to enable logging to file.'''
-    global logfile
-    flist = os.listdir(log_file_path)
-    maxnum = 0
-    for f in flist:
-        if not f.startswith("pb_"): continue
-        if not f.endswith(".log"): continue
-        try:
-            num = int(f[3:8])
-        except:
-            continue
-        if num > maxnum: maxnum = num
-    maxnum += 1 
-    fname = f'{log_file_path}/pb_{maxnum:05}.log'
-    logfile = open(fname, "a")
-    tm = _formatted_time() 
-    logfile.write(f"New Sesstion started at: {tm}\n")
-    logfile.write(f"File Number = {maxnum}\n")
-    logfile.write("\n")
-    logfile.flush()
-    return
+    try:
+        global logfile
+        flist = os.listdir(log_file_path)
+        maxnum = 0
+        for f in flist:
+            if not f.startswith("pb_"): continue
+            if not f.endswith(".log"): continue
+            try:
+                num = int(f[3:8])
+            except:
+                continue
+            if num > maxnum: maxnum = num
+        maxnum += 1 
+        fname = f'{log_file_path}/pb_{maxnum:05}.log'
+        logfile = open(fname, "a")
+        tm = _formatted_time() 
+        logfile.write(f"New Sesstion started at: {tm}\n")
+        logfile.write(f"File Number = {maxnum}\n")
+        logfile.write("\n")
+        logfile.flush()
+        return
+    except:
+        print("!!! Unable to Open Log File.")
+        logfile = None
 
 def disable_debug():
     '''Disable logging of debug messages.'''
