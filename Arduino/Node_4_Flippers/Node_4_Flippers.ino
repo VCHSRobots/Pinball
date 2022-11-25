@@ -76,8 +76,8 @@
  * current coil, and the second is a high resistance/low current coil.  The coils are
  * connected in series, and the EOS swich shorts out the second coil 
  * when the flipper is in it's non-energized state.  When voltage is applied, high
- * current flows throug the first coil causing the flipper to move and the EOS switch to open.
- * When the switch opens, the combined coils how move to a low current condition to 
+ * current flows through the first coil causing the flipper to move and the EOS switch to open.
+ * When the switch opens, the combined coils move to a low current condition to 
  * hold the flipper in an energized state without using high current.
  * 
  * The FLIPPER_PWM can be used to limit the current in both conditions... Note that after

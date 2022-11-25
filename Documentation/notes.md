@@ -116,12 +116,22 @@ it still takes as much as a millisecond, but average time is around 0.5 ms.
 
 ## Setting up Raspberry and Python Environment
 We keep library and shard python code in a libaray, in the folder /home/pi/pb/lib.  This folder 
-must be put in the python path for loading modules.  Do this by coping pinball.pth to 
+must be put in the python path for loading modules.  Do this by copying pinball.pth to 
 /home/pi/.local/lib/python3.9/site-packages
 
 ALso, edit the .bashrc file and add following to last line:
 
 PATH=/home/pi/pb/bin:$PATH
+
+## Fixing the UART in the Raspberry
+Its likely if you use the default UART port for communication with the nodes, you will run
+into baudrate problems.  To fix, use the better UART port (but this will disable bluetooth).
+In /boot/config.txt:  add the following line to the end of the file:
+
+    dtoverlay = pi3-disable-bt
+
+    
+
 
 
 
