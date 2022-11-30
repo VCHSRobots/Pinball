@@ -132,8 +132,8 @@ class ScreenRobotParts():
         self._partsurfaces = []
         if common.platform() == "real": self._partpath = "/home/pi/pb/assets/"
         else: self._partpath = "assets"
-        self._partfiles = ["RobotParts_1.gif", "RobotParts_2.gif", "RobotParts_3.gif", "RobotParts_4.gif",
-                           "RobotParts_5.gif", "RobotParts_6.gif", "RobotParts_7.gif"]
+        self._partfiles = ["RobotParts_1.png", "RobotParts_2.png", "RobotParts_3.png", "RobotParts_4.png",
+                           "RobotParts_5.png", "RobotParts_6.png", "RobotParts_7.png"]
         try:
             for f in self._partfiles:
                 ff = os.path.join(self._partpath, f) 
