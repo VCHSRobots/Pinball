@@ -161,7 +161,7 @@ uint8_t flipper_pwm_1[]  = {255, 255, 255};
 uint32_t flipper_pwm_delay[] = {50, 50, 50};
 uint32_t flipper_start_t0[] = {0, 0, 0};
 bool flipper_energized[] = {false, false, false};
-bool flipper_enable[] = {false, false, false};
+bool flipper_enable[] = {true, true, true};  // CHANGE BACK!!!
 bool flipper_controled[] = {false, false, false};
 bool flipper_ctrl_energized[] = {false, false, false};
 uint32_t flipper_ctrl_delay[] = {0, 0, 0};
@@ -555,4 +555,3 @@ void loop() {
     if(iflipper == 0 && !bus.is_busy()) manage_coils(); 
     stop_timmer();
 }
-

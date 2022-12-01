@@ -1,5 +1,5 @@
-#! /usr/bin/python3
-# bus_list.py -- Scans the bus and lists devices
+#! /usr/bin/python
+# # bus_list.py -- Scans the bus and lists devices
 #
 # Pinball Machine Project, EPIC Robotz, Fall 2022
 # Epic Robotz, Fall 2020

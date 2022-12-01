@@ -158,7 +158,7 @@ uint8_t coil_ontime[] = {50, 50, 50};
 uint8_t coil_resttime[] = {10, 10, 10};
 uint32_t coil_start_t0[] = {0, 0, 0};
 uint8_t coil_state[] = {COIL_READY, COIL_READY, COIL_READY};
-bool coil_enable[] = {false, false, false};
+bool coil_enable[] = {true, true, true};   // CHANGE THIS BACK!!!
 
 // Parameters and states for input switches.
 uint32_t debounce_on[] = {1000, 1000, 1000};
@@ -665,4 +665,3 @@ void loop() {
     }
     stop_timmer();
 }
-
