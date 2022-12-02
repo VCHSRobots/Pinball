@@ -741,8 +741,9 @@ void manage_neo(int ibatch) {
             }
             return;
         case NEO_DEMO: {
-            neo_demo();
-        }
+                neo_demo();
+            }
+            return;
     }
 }
 

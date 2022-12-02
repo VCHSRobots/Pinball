@@ -28,7 +28,8 @@
  * 12      FLIPPER_ENABLE args: mask(1), enable/disable(1)
  * 13      COILS_PWM      args: mask(1), pwm_on(1)
  * 14      COILS_CTRL     args: mask(1), enable/disable(1), delay(1)
- * 15      DEBOUNCE       args: mask(1), tunit_low(1), tunit_high(1) 
+ * 15      BALL_CYCLE     args: enable(1)
+ * 16      DEBOUNCE       args: mask(1), tunit_low(1), tunit_high(1) 
  * 
  * FLIPPER_PWM
  * Sets the PWM values to use when the flipper is energized.  Two values are given, 'pwm_0' and 
@@ -63,6 +64,12 @@
  * to be turned on, then delay will control for how long, in msec.  A zero delay means
  * indefinate.
  * 
+ * BALL_CYCLE
+ * Sets the condition of the ball cycle servo.  It takes about a second to change servo
+ * positions.  To release a ball into the game, the ball cycle should be enabled (non-zero) for
+ * one second, and then returned to disabled (zero).  Timing of BALL_CYCLE is entirelly 
+ * left up to the host.
+ * 
  * DEBOUNCE
  * Sets the debounce filter for each switch input.  tuints_low is the number of
  * milliseconds that the input must be in the low state to be consideres a valid input.
@@ -92,34 +99,59 @@
  *   Byte 3:   Bit pattern of current switch conditions.
  *   Byte 4:   Switch counts for inputs 0 and 1
  *   Byte 5:   Switch counts for inputs 2 and 3
- *   Byte 6:   Switch counds for inputs 4 and 5
+ *   Byte 6:   Switch counts for inputs 4 and 5
+ *   Byte 7:   Switch counts for inputs 6 and 7
  * 
  * A switch count byte has the following bit pattern:  bbbb-aaaa were "bbbb" is the
  * count for the highered number switch, and "aaaa" is the switch count for the lowered
  * numnbered switch.  The counts run from zero to 15, and then roll over.
+ * 
+ * Special Note regarding Switches:
+ * Switches 1-3 are assumed to be connected to the flipper buttons and the start button.
+ * These are pulled low to activate.
+ * Switch 4, 5, 6, and 7 are connected to the ball trough to sense presents of balls
+ * in their respective position.  These are active high.
+ * Switch 8 is a spare -- active low.
+ * 
+ * This code accounts for the way the switch is wired, and presents a logical "one" if
+ * the switch is activated.
  * 
  */
 
 #define NODE_ADDRESS 4
 #define NFLIPPERS 3
 #define NCOILS 3
-#define NINPUTS 6
+#define NINPUTS 8
 
 #include "comm_bus.h"
 
 // Define the pins...
-#define PIN_FLIPPER_1  6
-#define PIN_FLIPPER_2  5
-#define PIN_FLIPPER_3  3
-#define PIN_COIL_1    11 
-#define PIN_COIL_2    10
-#define PIN_COIL_3     9
-#define PIN_SW_1       8
-#define PIN_SW_2       7 
-#define PIN_SW_3       4
-#define PIN_SW_4      14   // Also A0
-#define PIN_SW_5      15   // Also A1
-#define PIN_SW_6      16   // Also A2
+#define PIN_FLIPPER_1   6
+#define PIN_FLIPPER_2   5
+#define PIN_FLIPPER_3   3
+#define PIN_COIL_1     11 
+#define PIN_COIL_2     10
+#define PIN_COIL_3      9
+#define PIN_SW_1        8   // Assumed to be right hand flipper button
+#define PIN_SW_2        7   // Assumed to be left hand flipper button
+#define PIN_SW_3        4   // Assumed to be start button
+#define PIN_SW_4       14   // Also A0 -- active high -- ball sensor 1
+#define PIN_SW_5       15   // Also A1 -- active high -- ball sensor 2
+#define PIN_SW_6       16   // Also A2 -- active high -- ball sensor 3
+#define PIN_SW_7       17   // Also A3 -- active high -- ball sensor 4
+#define PIN_SW_8       18   // Also A4 
+#define PIN_BALL_CYCLE 12   // Controls the ball cycle servo
+
+// Set the active value for the switch
+#define SWA_1 LOW  
+#define SWA_2 LOW
+#define SWA_3 LOW
+#define SWA_4 HIGH
+#define SWA_5 HIGH
+#define SWA_6 HIGH
+#define SWA_7 HIGH
+#define SWA_8 LOW
+
 
 // Debugging Pins...
 #define PIN_DB1 17
@@ -134,15 +166,16 @@
 #define CMD_FLIPPER_ENABLE   12
 #define CMD_COILS_PWM        13
 #define CMD_COILS_CTRL       14
-#define CMD_DEBOUNCE         15
+#define CMD_BALL_CYCLE       15
+#define CMD_DEBOUNCE         16
 
-// Constants to help Switch Processing
-#define SW_BIT_1 0x0001
-#define SW_BIT_2 0x0002
-#define SW_BIT_3 0x0004
-#define SW_BIT_4 0x0008
-#define SW_BIT_5 0x0010
-#define SW_BIT_6 0x0020
+// // Constants to help Switch Processing
+// #define SW_BIT_1 0x0001
+// #define SW_BIT_2 0x0002
+// #define SW_BIT_3 0x0004
+// #define SW_BIT_4 0x0008
+// #define SW_BIT_5 0x0010
+// #define SW_BIT_6 0x0020
 
 // Switch Input States
 #define SW_READY        0  // We are waiting for a trigger
@@ -151,7 +184,7 @@
 #define SW_DB_OFF       3  // Waiting for debounce on opening of the switch
 
 // Setup the pins
-uint8_t input_pins[] = {PIN_SW_1, PIN_SW_2, PIN_SW_3, PIN_SW_4, PIN_SW_5, PIN_SW_6};
+uint8_t input_pins[] = {PIN_SW_1, PIN_SW_2, PIN_SW_3, PIN_SW_4, PIN_SW_5, PIN_SW_6, PIN_SW_7, PIN_SW_8};
 uint8_t flipper_pins[] = {PIN_FLIPPER_1, PIN_FLIPPER_2, PIN_FLIPPER_3};
 uint8_t coil_pins[] = {PIN_COIL_1, PIN_COIL_2, PIN_COIL_3};
 
@@ -174,11 +207,12 @@ uint32_t coil_delay[] = {0, 0, 0};
 uint8_t coil_pwm[] = {255, 255, 255}; 
 
 // Parameters and states for input switches.
-uint32_t debounce_on[] = {1000, 1000, 1000, 1000, 1000, 1000};
-uint32_t debounce_off[] = {10000, 10000, 10000, 10000, 10000};
-uint32_t debounce_t0[] = {0, 0, 0, 0, 0, 0};
-uint8_t switch_counts[] = {0, 0, 0, 0, 0, 0};
-uint8_t switch_states[] = {SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY};
+uint32_t debounce_on[] = {1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
+uint32_t debounce_off[] = {10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000};
+uint32_t debounce_t0[] = {0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t switch_counts[] = {0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t switch_active_type[] = {SWA_1, SWA_2, SWA_3, SWA_4, SWA_5, SWA_6, SWA_7, SWA_8};
+uint8_t switch_states[] = {SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY};
 uint8_t switch_bits = 0;
 
 // Comm Bus Stuff
@@ -195,6 +229,9 @@ uint8_t echo_reg = 0;
 uint32_t t0_timmer;
 uint32_t elp_timmer = 0;       
 int debug_counter = 0;        
+
+// ball trough stuff
+bool ball_cycle = false;
 
 // --------------------------------------------------------------------
 // Declaration to measure ram usaage:
@@ -311,6 +348,11 @@ bool process_command() {
                 }
             }  
             return true;
+        case CMD_BALL_CYCLE: {
+                if(cmd_bytes[1]) ball_cycle = true;
+                else ball_cycle = false;
+            }
+            return true;
         case CMD_DEBOUNCE: {
                 int mask = cmd_bytes[1];
                 uint32_t tunit_on = cmd_bytes[2];
@@ -395,7 +437,15 @@ void setup() {
     setup_coils();
     setup_inputs();
     load_response();
+    pinMode(PIN_BALL_CYCLE, OUTPUT);
     bus.begin();
+}
+
+// --------------------------------------------------------------------
+// Sets the ball cycle condition
+void send_ball_cycle() {
+    if(ball_cycle) digitalWrite(PIN_BALL_CYCLE, HIGH);
+    else digitalWrite(PIN_BALL_CYCLE, LOW);
 }
 
 // --------------------------------------------------------------------
@@ -424,7 +474,7 @@ void get_inputs() {
         uint32_t tnow = micros();
         int ibit = (1 << i);
         bool bval = false;
-        if (digitalRead(input_pins[i]) == LOW) bval = true;
+        if (digitalRead(input_pins[i]) == switch_active_type[i]) bval = true;
         switch(switch_states[i]) {
             case SW_READY:
                 if (bval) {
@@ -554,4 +604,5 @@ void loop() {
     manage_flippers(iflipper);
     if(iflipper == 0 && !bus.is_busy()) manage_coils(); 
     stop_timmer();
+    send_ball_cycle();
 }

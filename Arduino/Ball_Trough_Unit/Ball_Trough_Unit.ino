@@ -11,8 +11,7 @@
  * sister unit for the Flipper Node.  
  * 
  * Inputs are:
- *   4 IR sensors on the Ball Trough
- *   2 Analog inputs to control the servo end points
+ *   4 IR sensors on the Ball Trough -- Input into A0-A3
  *   1 Control wire to command the servo
  * 
  * Outputs are:
@@ -26,10 +25,11 @@
 #define PIN_LED   13  // Used to tell condition of input for servo
 
 #define PIN_SERVO 12
-#define PIN_IRD_1 11
-#define PIN_IRD_2 10
-#define PIN_IRD_3 9
-#define PIN_IRD_4 8
+
+#define PIN_IRD_1 A0
+#define PIN_IRD_2 A1
+#define PIN_IRD_3 A2
+#define PIN_IRD_4 A3
 
 #define PIN_BALL_1 6
 #define PIN_BALL_2 5
@@ -37,6 +37,8 @@
 #define PIN_BALL_4 3
 
 #define PIN_SERVO_CTRL 2
+
+#define DETECT_THRESHOLD 500
 
 uint8_t detector_pins[] = {PIN_IRD_1, PIN_IRD_2, PIN_IRD_3, PIN_IRD_4};
 uint8_t ball_pins[] = {PIN_BALL_1, PIN_BALL_2, PIN_BALL_3, PIN_BALL_4};
@@ -68,7 +70,7 @@ void setup() {
     digitalWrite(ball_pins[i], HIGH);   
   }
   pinMode(PIN_SERVO_CTRL, INPUT_PULLUP);
-  //Serial.begin(115200);
+  // Serial.begin(115200);
   servo_inited = false;
 }
 
@@ -86,8 +88,9 @@ bool servo_action() {
 // Sends the condition of the IR sensors to the host.
 void send_sensors() {
   for(int i = 0; i < 4; i++) {
-    if(digitalRead(detector_pins[i]) == HIGH) digitalWrite(ball_pins[i], LOW);
-    else digitalWrite(ball_pins[i], HIGH);
+    int reading = analogRead(detector_pins[i]);
+    if (reading > DETECT_THRESHOLD) digitalWrite(ball_pins[i], HIGH);
+    else digitalWrite(ball_pins[i], LOW);
   }
 }
 
@@ -178,32 +181,36 @@ void manage_servo() {
 //   char line[100];
 //   char sval[25];
 //   uint32_t tnow = millis();
-//   if (tnow - last_report_time < 2000) return;
+//   if (tnow - last_report_time < 1000) return;
 //   last_report_time = tnow;
 
-//   // cal_analog();
-//   // int ia0 = (int) a0;
-//   // int ia1 = (int) a1;
+//   int r0 = analogRead(detector_pins[0]);
+//   int r1 = analogRead(detector_pins[1]);
+//   int r2 = analogRead(detector_pins[2]);
+//   int r3 = analogRead(detector_pins[3]);
 
-//   // Serial.println("");
-//   // sprintf(line, "Servo A0, A1 readings: %d, %d", ia0, ia1);
-//   // Serial.println(line);
+//   sprintf(line, "Analog Reads: %3d %3d %3d %3d", r0, r1, r2, r3);
+//   Serial.println(line);
+
+//   // // Serial.println("");
+//   // // sprintf(line, "Servo A0, A1 readings: %d, %d", ia0, ia1);
+//   // // Serial.println(line);
   
-//   dtostrf(target_pwm, 8, 3, sval);
-//   sprintf(line, "target_pwm = %s", sval);
-//   Serial.println(line);
+//   // dtostrf(target_pwm, 8, 3, sval);
+//   // sprintf(line, "target_pwm = %s", sval);
+//   // Serial.println(line);
 
-//   dtostrf(current_pwm, 8, 3, sval);
-//   sprintf(line, "current_pwm = %s", sval);
-//   Serial.println(line);
+//   // dtostrf(current_pwm, 8, 3, sval);
+//   // sprintf(line, "current_pwm = %s", sval);
+//   // Serial.println(line);
 
-//   sprintf(line, "last_servo_cmd_pwm = %d", last_servo_cmd_pwm);
-//   Serial.println(line);
+//   // sprintf(line, "last_servo_cmd_pwm = %d", last_servo_cmd_pwm);
+//   // Serial.println(line);
 // }
 
 void loop() {
   // update_analog();
   send_sensors();
   manage_servo();
-  //report();
+  // report();
 }

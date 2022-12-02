@@ -40,9 +40,10 @@
  *   4 (7)  NEO_WIPE      NeoPixel Wipe Args: C1(3), C2(3), Wait(1)
  *   5 (8)  NEO_CHASE     NeoPixel Chase Args: C1(3), C2(3), N(1), Wait(1)
  *   6 (9)  NEO_BLINK     NepPixel Blink Args: C1(3), C2(3), N1(1), N2(1), Wait(1)
- *   7 (2)  LAMP_SOLID    Lamp Solid Args: LampMask(1), Brightness(1)
- *   8 (3)  LAMP_FLASH    Lamp Flash Args: LampMask(1), Brightness(1), Wait(1)
- *   9 (4)  LAMP_MODULATE Lamp Modulate Args: LampMask(1), B1(1), B2(1), Steps(1)
+ *   7 (0)  NEO_DEMO      Startup-mode demo
+ *   8 (2)  LAMP_SOLID    Lamp Solid Args: LampMask(1), Brightness(1)
+ *   9 (3)  LAMP_FLASH    Lamp Flash Args: LampMask(1), Brightness(1), Wait(1)
+ *  10 (4)  LAMP_MODULATE Lamp Modulate Args: LampMask(1), B1(1), B2(1), Steps(1)
  * 
  * The above arguments are defined as follows:
  *   Color, C1, and C2: Three bytes: R, G, B
@@ -120,9 +121,10 @@
 #define CMD_NEO_WIPE        4
 #define CMD_NEO_CHASE       5
 #define CMD_NEO_BLINK       6
-#define CMD_LAMP_SOLID      7
-#define CMD_LAMP_FLASH      8
-#define CMD_LAMP_MODULATE   9
+#define CMD_NEO_DEMO        7
+#define CMD_LAMP_SOLID      8
+#define CMD_LAMP_FLASH      9
+#define CMD_LAMP_MODULATE  10
 
 // Define Modes for Neo Pixels
 #define NEO_SINGLE 0
@@ -130,6 +132,7 @@
 #define NEO_WIPE   2
 #define NEO_CHASE  3
 #define NEO_BLINK  4
+#define NEO_DEMO   5
 
 // Define Modes for the Lamps
 #define LAMP_SOLID 0
@@ -165,7 +168,7 @@ uint8_t neo_n2 = 1;
 uint8_t neo_wait = 8;
 
 // Status keepers for Neo Pixels
-uint8_t neo_mode = NEO_SINGLE;
+uint8_t neo_mode = NEO_DEMO;
 bool neo_show_pending = false;
 //> uint8_t neo_istep[NPIXELS];   // Where we are in the loop for each pixel.
 int neo_anim_iprog = 0;       // Progress on the anaimation
@@ -332,6 +335,10 @@ bool process_command() {
                 neo_n1 = cmd_bytes[7];
                 neo_n2 = cmd_bytes[8];
                 neo_wait = cmd_bytes[9] & 0x007F;;
+            }
+            return true;
+        case CMD_NEO_DEMO: {
+                neo_mode = NEO_DEMO;
             }
             return true;
         case CMD_LAMP_SOLID: {
@@ -580,6 +587,118 @@ void neo_blink(int indx0, int n) {
 }
 
 // --------------------------------------------------------------------
+// Demo mode: turn all the lights on, chase them,  rainbow.
+void neo_demo() {
+    static int demo_frame = 0;
+    static int ipixel = 0;
+    static int ta = 0;
+    static int tb = 0;
+    static uint32_t last_update = millis();
+    static uint32_t next_wait = 0;
+    static long firstPixelHue = 0;
+
+    uint32_t tnow = millis();
+    if (tnow - last_update < next_wait) return;
+    last_update = tnow;
+    neo_show_pending = true;
+    next_wait = 125;
+
+    switch(demo_frame) {
+        case 0:  { // Fill with Red
+                ipixel++;
+                if(ipixel > NPIXELS) {
+                    demo_frame = 1;
+                    ipixel = 0;
+                    return;
+                }
+                strip.setPixelColor(ipixel, strip.Color(255, 0, 0));
+            }
+            return;
+        case 1:  { // Fill with Green
+                ipixel++;
+                if(ipixel > NPIXELS) {
+                    demo_frame = 2;
+                    ipixel = 0;
+                    return;
+                }
+                strip.setPixelColor(ipixel, strip.Color(0, 255, 0));
+            }
+            return;
+        case 2:  { // Fill with Blue
+                ipixel++;
+                if(ipixel > NPIXELS) {
+                    demo_frame = 3;
+                    ta = 0; tb = -1;
+                    strip.clear();
+                    return;
+                }
+                strip.setPixelColor(ipixel, strip.Color(0, 0, 255));
+            }
+            return;
+        case 3:  { // Theater Chase, White
+                strip.clear();
+                tb++;
+                if (tb >= 3) {
+                    tb = 0;
+                    ta++;
+                    if (ta >= 10) {
+                        demo_frame = 4;
+                        ta = 0; tb = -1;
+                        return;
+                    }
+                }
+                for(int c = tb; c < NPIXELS; c += 3) strip.setPixelColor(c, strip.Color(127, 127, 127));
+                next_wait = 50;
+            }
+            return;
+        case 4:  { // Theater Chase, Red
+                strip.clear();
+                tb++;
+                if (tb >= 3) {
+                    tb = 0;
+                    ta++;
+                    if (ta >= 10) {
+                        demo_frame = 5;
+                        ta = 0; tb = -1;
+                        return;
+                    }
+                }
+                for(int c = tb; c < NPIXELS; c += 3) strip.setPixelColor(c, strip.Color(127, 0, 0));
+                next_wait = 50;
+            }
+            return;
+        case 5:  { // Theater Chase, Blue
+                strip.clear();
+                tb++;
+                if (tb >= 3) {
+                    tb = 0;
+                    ta++;
+                    if (ta >= 10) {
+                        demo_frame = 6;
+                        firstPixelHue = 0;
+                        return;
+                    }
+                }
+                for(int c = tb; c < NPIXELS; c += 3) strip.setPixelColor(c, strip.Color(0, 0, 127));
+                next_wait = 50;
+            }
+            return;
+        case 6:  {  // Rainbow
+                firstPixelHue += 256;
+                if(firstPixelHue > 3*65536) {
+                    demo_frame = 0;
+                    ipixel = 0;
+                    strip.clear();
+                    return;
+                } 
+                strip.rainbow(firstPixelHue);
+                next_wait = 10;
+            }
+            return;
+    }
+}
+
+// --------------------------------------------------------------------
 // Responsible for time-slicing the work to update the neo pixels.
 // Does the work in batches, of 15 pixels each.  The batches
 // must be numbered from 0 to NPIXELS/15 + 1.  That is call this 
@@ -621,6 +740,10 @@ void manage_neo(int ibatch) {
                 neo_blink(indx, np);
             }
             return;
+        case NEO_DEMO: {
+                neo_demo();
+            }
+        return;
     }
 }
 

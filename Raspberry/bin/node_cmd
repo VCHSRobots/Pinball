@@ -1,0 +1,66 @@
+#! /usr/bin/python
+# node_cmd.py -- Issues a node command on the bus
+#
+# Pinball Machine Project, EPIC Robotz, Fall 2022
+# Epic Robotz, Fall 2020
+# dlb
+#
+
+import comm_bus
+import pb_log
+import time
+import sys
+
+pb_log.log_init()
+pb_log.disable_debug()
+pb_log.disable_terminal()
+
+bus = comm_bus.CommBus() 
+bus.begin()
+
+nodes = [(2, "Light Node in Score Box"),
+         (3, "Light Node in Play Field"),
+         (4, "Flipper Node"), 
+         (5, "Jet Bumpers Node"),
+         (6, "Kicker Node"),
+         (7, "Lane Sensor Node"),
+         (8, "Target Node"),
+         (9, "Test Node")]
+
+print(sys.argv)
+
+if len(sys.argv) <= 1:
+    print("Node Command.  Issue in this order: node-addr cmd d0 d1 ...")
+    print("Nodes are: ")
+    for i, s in nodes:
+        print(f"{i:2} : {s}")
+    sys.exit();
+
+try:
+    addr = int(sys.argv[1])
+except ValueError:
+    print("Node Address must be an integer in range of 0-15.")
+    sys.exit();
+if addr < 0 or addr > 15:
+    print("Node address must be in the range 0-15.")
+    sys.exit();
+
+data = [] 
+nargs = len(sys.argv) - 2
+for i in range(nargs):
+    try:
+        x = int(sys.argv[i + 2])
+    except ValueError:
+        print("Command and data must be in the range 0-255")
+        sys.exit() 
+    data.append(x)
+
+response = bus.node_io(addr, data)
+bus.close() 
+if response == None:
+    print("No response from node.")
+    sys.exit()
+if len(response) == 0:
+    print("Node responded without sending data.")
+    sys.exit()
+print("Response = ", response)
