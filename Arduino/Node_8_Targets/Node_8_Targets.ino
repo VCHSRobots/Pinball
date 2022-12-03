@@ -62,7 +62,7 @@
  */
 
 #define NODE_ADDRESS 8
-#define NINPUTS 15        // Note, only the first 8 are really used.
+#define NINPUTS 8         // Note, can be expanded up to 16 if needed
 
 #include "comm_bus.h"
 
@@ -106,10 +106,10 @@ uint8_t input_pins[] = {PIN_S1, PIN_S2, PIN_S3, PIN_S4, PIN_S5, PIN_S6, PIN_S7, 
 // Parameters and states for input switches.
 // Note: these arrays are 16 elements instead of 15.  Last element is ignored.
 // This makes some processing easier.
-uint32_t debounce_on[] =  {1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
-                           1000, 1000, 1000, 1000, 1000, 1000};
-uint32_t debounce_off[] = {2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000,
-                           2000, 2000, 2000, 2000, 2000, 2000};
+uint32_t debounce_on[] =  {3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000,
+                           3000, 3000, 3000, 3000, 3000, 3000};
+uint32_t debounce_off[] = {5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000,
+                           5000, 5000, 5000, 5000, 5000, 5000};
 uint32_t debounce_t0[]  = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t switch_counts[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t switch_states[] = {SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY,
@@ -273,6 +273,7 @@ void get_inputs() {
         uint32_t tnow = micros();
         int ibit = (1 << i);
         bool bval = false;
+        if (input_pins[i] == 0) continue;
         if (digitalRead(input_pins[i]) == LOW) bval = true;
         switch(switch_states[i]) {
             case SW_READY:

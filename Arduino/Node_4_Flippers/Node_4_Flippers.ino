@@ -213,7 +213,7 @@ uint32_t debounce_t0[] = {0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t switch_counts[] = {0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t switch_active_type[] = {SWA_1, SWA_2, SWA_3, SWA_4, SWA_5, SWA_6, SWA_7, SWA_8};
 uint8_t switch_states[] = {SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY};
-uint8_t switch_bits = 0;
+uint16_t switch_bits = 0;
 
 // Comm Bus Stuff
 void on_receive(byte *, int);
@@ -381,13 +381,14 @@ void load_response() {
     response[1] = err_count & 0x00FF;
     response[2] = echo_reg;
 
-    response[3] = switch_bits;
+    response[3] = switch_bits & 0x00FF;
 
     response[4] = ((switch_counts[1] << 4) & 0x00F0) | (switch_counts[0] & 0x000F);
     response[5] = ((switch_counts[3] << 4) & 0x00F0) | (switch_counts[2] & 0x000F);
     response[6] = ((switch_counts[5] << 4) & 0x00F0) | (switch_counts[4] & 0x000F);
+    response[7] = ((switch_counts[7] << 4) & 0x00F0) | (switch_counts[6] & 0x000F);
 
-    bus.set_response(response, 7);
+    bus.set_response(response, 8);
 }
 
 
@@ -469,10 +470,10 @@ void set_coil(int icoil, int pwm) {
 // --------------------------------------------------------------------
 // Reads the inputs and applies filtering. 
 void get_inputs() {
-    uint8_t x = 0;
+    uint16_t x = 0;
     for(int i = 0; i < NINPUTS; i++) {
         uint32_t tnow = micros();
-        int ibit = (1 << i);
+        uint16_t ibit = (1 << i);
         bool bval = false;
         if (digitalRead(input_pins[i]) == switch_active_type[i]) bval = true;
         switch(switch_states[i]) {

@@ -14,11 +14,20 @@ else:
 logfile = None
 logdebug = True  # if should be logging debug messages
 logterminal = True  # if should be sending to the terminal
+logging_enabled = True   # if not logging at all.
 
 def _formatted_time():
     t = time.localtime() 
     tstr = f'{t.tm_year:04}-{t.tm_mon:02}-{t.tm_mday:02} {t.tm_hour:02}:{t.tm_min:02}:{t.tm_sec:02}'
     return tstr
+
+def disable():
+    global logging_enabled
+    logging_enabled = False 
+
+def enable():
+    global logging_enabled 
+    logging_enabled = True
 
 def log_init():
     '''Initialize the logger. Must be called at least once to enable logging to file.'''
@@ -71,6 +80,7 @@ def close():
     '''Close logging to file.  Call begin() to
     start a new file.'''
     global logfile
+    if logfile is None: return
     logfile.flush()
     logfile.close()
     logfile = None
@@ -78,7 +88,8 @@ def close():
 
 def log(msg):
     '''Logs any message'''
-    global logterminal, logfile
+    global logterminal, logfile, logging_enabled
+    if not logging_enabled: return
     tm = _formatted_time()
     line = tm + "> " + msg
     if logfile: 
@@ -88,7 +99,8 @@ def log(msg):
 
 def logd(msg):
     '''Logs debug msg, only if debug logging is enabled.'''
-    global logterminal, logfile, logdebug
+    global logterminal, logfile, logdebug, logging_enabled
+    if not logging_enabled: return
     if not logdebug: return
     tm = _formatted_time()
     line = tm + " DEBUG> " + msg

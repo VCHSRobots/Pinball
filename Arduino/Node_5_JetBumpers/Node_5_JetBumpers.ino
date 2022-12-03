@@ -81,11 +81,12 @@
  *   Byte 1:   Count of errors, rolls over at 255.
  *   Byte 2:   Echo Registor -- returns argument given on a ECHO command.
  *   Byte 3:   Bit pattern of current switch conditions.
- *   Byte 4:   Switch counts for input 0
- *   Byte 5:   Switch counds for input 1
- *   Byte 5:   Switch counts for input 2
+ *   Byte 4:   Switch counts for inputs  0 and  1
+ *   Byte 5:   Switch counts for input   2
  * 
- * The switch counts are a full byte, and roll over after 255 hits.
+ * A switch count byte has the following bit pattern:  bbbb-aaaa were "bbbb" is the
+ * count for the highered number switch, and "aaaa" is the switch count for the lowered
+ * numnbered switch.  The counts run from zero to 15, and then roll over.
  * 
  */
 
@@ -158,11 +159,11 @@ uint8_t coil_state[] = {COIL_READY, COIL_READY, COIL_READY};
 bool coil_enable[] = {true, true, true};   // CHANGE BACK
 
 // Parameters and states for input switches.
-uint32_t debounce_on[] = {1000, 1000, 1000};
-uint32_t debounce_off[] = {2000, 2000, 2000};
-uint32_t debounce_t0[] = {0, 0, 0};
-uint8_t switch_counts[] = {0, 0, 0};
-uint8_t switch_states[] = {SW_READY, SW_READY, SW_READY};
+uint32_t debounce_on[] = {1000, 1000, 1000, 1000};
+uint32_t debounce_off[] = {2000, 2000, 2000, 2000};
+uint32_t debounce_t0[] = {0, 0, 0, 0};
+uint8_t switch_counts[] = {0, 0, 0, 0};
+uint8_t switch_states[] = {SW_READY, SW_READY, SW_READY, SW_READY};
 uint8_t switch_bits = 0;
 
 // Parameters and states for the lamps
@@ -388,11 +389,10 @@ void load_response() {
 
     response[3] = switch_bits;
 
-    response[4] = switch_counts[0] & 0x00FF;
-    response[5] = switch_counts[1] & 0x00FF;
-    response[6] = switch_counts[2] & 0x00FF;
+    response[4] = ((switch_counts[1] << 4) & 0x00F0) | (switch_counts[0] & 0x000F);
+    response[5] = ((switch_counts[3] << 4) & 0x00F0) | (switch_counts[2] & 0x000F);
 
-    bus.set_response(response, 7);
+    bus.set_response(response, 6);
 }
 
 

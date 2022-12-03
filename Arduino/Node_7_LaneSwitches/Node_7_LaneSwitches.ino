@@ -101,10 +101,10 @@ uint8_t input_pins[] = {PIN_S1, PIN_S2, PIN_S3, PIN_S4, PIN_S5, PIN_S6, PIN_S7, 
 // Parameters and states for input switches.
 // Note: these arrays are 16 elements instead of 15.  Last element is ignored.
 // This makes some processing easier.
-uint32_t debounce_on[] =  {1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
-                           1000, 1000, 1000, 1000, 1000, 1000};
-uint32_t debounce_off[] = {2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000,
-                           2000, 2000, 2000, 2000, 2000, 2000};
+uint32_t debounce_on[] =  {3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000,
+                           3000, 3000, 3000, 3000, 3000, 3000};
+uint32_t debounce_off[] = {5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000,
+                           5000, 5000, 5000, 5000, 5000, 5000};
 uint32_t debounce_t0[]  = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t switch_counts[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t switch_states[] = {SW_READY, SW_READY, SW_READY, SW_READY, SW_READY, SW_READY,
@@ -263,7 +263,7 @@ void get_inputs() {
     uint16_t x = 0;
     for(int i = 0; i < NINPUTS; i++) {
         uint32_t tnow = micros();
-        int ibit = (1 << i);
+        uint16_t ibit = (1 << i);
         bool bval = false;
         if (digitalRead(input_pins[i]) == LOW) bval = true;
         switch(switch_states[i]) {
