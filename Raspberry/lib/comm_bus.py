@@ -18,6 +18,11 @@ class CommBus():
         self._ser = None
         self._txon = False
         self._tm_last_msg = time.monotonic() - 1.0
+        self._bus_cycles = 0        # Total number of bus IO operations attempted
+        self._no_response_errs = 0  # Number of non-responsive queries
+        self._checksum_errs = 0     # Number of rejected msg due to checksum mismatch
+        self._write_errs = 0        # Errors during writing to bus (serious, should not happen)
+        self._protocol_errs = 0     # Errors due to bad fist byte
 
     def begin(self):
         gpio.setwarnings(False)
@@ -112,6 +117,7 @@ class CommBus():
             log(f'Serious error with com port. Write fail.')
             log(f'Error {type(err)}: {str(err)}')
             self._disable_tx()
+            self._write_errs += 1
             return None
         trecord.append(self.t_us() - tr0)
         self._disable_tx()
@@ -120,6 +126,7 @@ class CommBus():
         if nw != nmsg:
             log("Serious error with com port. Write fail.")
             log(f'All bytes not written.  Tried to send {nmsg} bytes, but {nw} bytes reported.')
+            self._write_errs += 1
             return None
 
         # Go into receive mode.  When real RS-485 is used, we should see two
@@ -139,6 +146,7 @@ class CommBus():
             if tnow - tsent > 0.01:
                 # No response.  
                 log(f'No response from slave node. Node={addr}  {ncnt}' )
+                self._no_response_errs += 1
                 return None
             # We set the mode to not-blocking!  We might not get anything back
             # on the read, but stay in this loop till the slave node has had
@@ -155,6 +163,7 @@ class CommBus():
                         # process the sync byte
                         if c != ord('e') and c != ord('E'):
                             log(f"Message protocol fail.  Illegal first byte ({c})")
+                            self._protocol_errs += 1
                             return None
                         in_msgbuf[0] = c
                         imsgptr = 1
@@ -166,6 +175,8 @@ class CommBus():
                         datlen = c & 0x000F
                         if addr_temp != addr:
                             log(f"Message fail. Returned address from slave incorrect. ({addr} != {addr_temp}).")
+                            self._protocol_errs += 1
+                            return
                         imsgptr = 2
                         continue
                     if (imsgptr  >= datlen + 2):
@@ -175,6 +186,7 @@ class CommBus():
                                 log(f"Checksum fail on receive. Found {c}. Should be {cksum}.")
                                 log(f"Message payload size = {datlen}")
                                 log(f"Bytes in msg = {self._bytes_to_str(in_msgbuf)}")
+                                self._checksum_errs += 1
                                 return None
                             # We have a completed message... check if it is an Echo or really from
                             # the slave node.
@@ -190,47 +202,23 @@ class CommBus():
                     imsgptr += 1
                     continue
 
+    # def _checksum(self, msg, nmsg):
+    #     sum = 0
+    #     for i, v in enumerate(msg):
+    #         if i >= nmsg: 
+    #             break
+    #         sum += v & 0x00FF
+    #     sum = sum & 0x00FF
+    #     return sum 
 
-
-
-                    
-
-
-                        
-
-
-
-                        
-
-
-
-
-
-
-        
-
-    def _checksum(self, msg, nmsg):
-        sum = 0
-        for i, v in enumerate(msg):
-            if i >= nmsg: 
-                break
-            sum += v & 0x00FF
-        sum = sum & 0x00FF
-        return sum 
-
-
-
-
-
-
-    def writereg(self, regadr, dat):
-        ''' Reads a register from the arduino. '''
-        try:
-            self._bus.write_byte_data(self._addr, regadr, dat)
-            if self._bus_monitor: self._bus_monitor.on_success()
-        except IOError:
-            if self._bus_monitor: self._bus_monitor.on_fail()
-            raise
-        except OSError:
-            if self._bus_monitor: self._bus_monitor.on_fail()
-            raise
+    # def writereg(self, regadr, dat):
+    #     ''' Reads a register from the arduino. '''
+    #     try:
+    #         self._bus.write_byte_data(self._addr, regadr, dat)
+    #         if self._bus_monitor: self._bus_monitor.on_success()
+    #     except IOError:
+    #         if self._bus_monitor: self._bus_monitor.on_fail()
+    #         raise
+    #     except OSError:
+    #         if self._bus_monitor: self._bus_monitor.on_fail()
+    #         raise

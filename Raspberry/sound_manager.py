@@ -8,7 +8,7 @@ import common
 from pb_log import log
 import time
 
-if common.platform == "real":
+if common.platform() == "real":
     sound_path = "/home/pi/pb/sounds/"
 else:
     sound_path = "C:\\Users\\dalbr\\Documents\\Projects\\Epic_Robots_2023\\PinballMachine\\Software\\Pinball\\Raspberry\\sounds\\"
@@ -122,7 +122,7 @@ class SoundManager():
                 log(f"Error: Sound for id={id}, file={f} not loaded. Reason: {err}")
                 self._sounds[id] = None 
         
-    def play_sound(self, id):
+    def play(self, id):
         if id in self._sounds:
             if self._sounds[id] is not None:
                 self._sounds[id].play() 
@@ -134,11 +134,13 @@ class SoundManager():
 if __name__ == "__main__" :
     pyg.init() 
     sm = SoundManager()
-    for id in get_all_sounds():
-        file = get_sound_file(id)
-        print(f"Playing {file}.")
-        sm.play_sound(id)
-        time.sleep(5)
+    # for id in get_all_sounds():
+    #     file = get_sound_file(id)
+    #     print(f"Playing {file}.")
+    #     sm.play(id)
+    #     time.sleep(5)
+    sm.play(S_BUILD_6)
+    time.sleep(5)
 
 
 
