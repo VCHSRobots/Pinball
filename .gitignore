@@ -1,6 +1,7 @@
 Arduino/libraries/Adafruit_NeoPixel
-junk.txt
 c_cpp_properties.json
 settings.json
 .env
 ~*
+junk* 
+Raspberry/junk*

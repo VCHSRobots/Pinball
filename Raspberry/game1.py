@@ -15,6 +15,10 @@ from pb_log import log, logd
 import screen 
 import hardware 
 import sound_manager as sm
+import event_manager
+import flippers
+import bumpers
+import kickers
 
 secs_per_day = 2.5  # Controls the speed of the build timer
 
@@ -25,9 +29,17 @@ class PinballMachine():
         self._screen = screen.Screen()
         self._hw = hardware.Hardware() 
         self._sound = sm.SoundManager() 
+        self._flippers = flippers.Flippers(self, self._hw, self._sound)
+        self._bumpers = bumpers.Bumpers(self, self._hw, self._sound)
+        self._kickers = kickers.Kickers(self, self._hw, self._sound)
+        self._flippers.eject_drop_ball()
         self._high_score = 0
         self._nballs = 0 
         self._game_active = False
+        self._drop_ball_pending = False
+        self._drop_ball_t0 = time.monotonic()
+        self._prevent_new_game = True
+        self._prevent_game_t0 = time.monotonic()
         self.reset_score()
         self._screen.reset_score()
         if comm is not None:
@@ -83,6 +95,13 @@ class PinballMachine():
             if self._iday > 90: self._iday = 90
             self.play_day_sound()
 
+    def reset_machine(self):
+        self._flippers.eject_drop_ball() 
+        self._flippers.disable_flippers() 
+        self._bumpers.disable()
+        self._kickers.disable()
+        time.sleep(5) # wait for ball to drain
+
     def reset_score(self):
         self._last_day_change_time = time.monotonic()
         self._score = 0
@@ -93,11 +112,26 @@ class PinballMachine():
 
     def start_new_game(self):
         self.reset_score()
+        self._flippers.enable_main_flippers()
+        self._flippers.disable_thrid_flipper()
+        self._bumpers.enable()
+        self._kickers.enable()
         self._nballs = 3
         self._game_active = True
         self._sound.play(sm.S_MATCH_START)
         self._last_day_change_time = time.monotonic()
-    
+
+    def set_game_over(self):
+        self.sound(sm.S_MATCH_END)
+        self._game_active = False
+        self._flippers.eject_drop_ball()
+        self._flippers.disable_main_flippers()
+        self._flippers.disable_thrid_flipper()
+        self._bumpers.disable()
+        self._kickers.disable()
+        self._prevent_new_game = True 
+        self._prevent_game_t0 = time.monotonic()
+
     def add_to_score(self, val):
         if self._nballs > 0 and self._game_active:
             self._score += val
@@ -111,10 +145,13 @@ class PinballMachine():
         if self._game_active:
             self._sound.play(id)
 
-    def process_events(self):
+    def process_hardware_events(self):
         events = self._hw.get_events()
         for e in events:
             if e == "F3": # restart
+                if self._game_active: continue
+                if self._prevent_new_game and time.monotonic() - self._prevent_game_t0 < 5.0: continue 
+                self._prevent_new_game = False
                 self.start_new_game()
                 return 
             if e in ["T1", "T2", "T3", "T4", "T5", "T6", "T7"]: 
@@ -131,6 +168,7 @@ class PinballMachine():
                 self.add_to_score(50) 
             if e in ["L5"]:
                 self.add_to_score(150) 
+                self._flippers.enable_thrid_flipper()
             if e in ["L8", "L9"]:
                 self.add_to_score(25) 
             if e in ["K1", "K2", "K3"]:
@@ -144,8 +182,15 @@ class PinballMachine():
                 if self._nballs < 0: self._nballs = 0
                 if self._nballs > 0: self.sound(sm.S_REDCARD)
                 else: 
-                    self.sound(sm.S_MATCH_END)
-                    self._game_active = False
+                    self._set_game_over() 
+
+            if e in ["F8"]:
+                self.sound(sm.S_DING_TARGET)
+                self._drop_ball_pending = True 
+                self._drop_ball_t0 = time.monotonic()
+                self.add_to_score(1000)
+                self._nballs += 1
+                self._flippers.new_ball()
                     
     def show_score(self):
         self._screen.score().main_score = self._score
@@ -170,8 +215,10 @@ class PinballMachine():
                 if e.type == pyg.QUIT or (e.type == pyg.KEYUP and e.key == pyg.K_ESCAPE): 
                     pyg.quit()
                     return 
+                if e.type == pyg.KEYUP:
+                    self._hw.simulate(e.key)
             self.advance_calendar()
-            self.process_events()
+            self.process_hardware_events()
             self.show_score()
 
 if __name__ == "__main__":
