@@ -480,6 +480,7 @@ void get_inputs() {
             case SW_READY:
                 if (bval) {
                     switch_states[i] = SW_DB_ON;
+                 
                     debounce_t0[i] = tnow;
                 }
                 break;

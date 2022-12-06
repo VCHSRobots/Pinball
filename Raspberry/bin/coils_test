@@ -1,0 +1,155 @@
+#! /usr/bin/python
+# coils_test -- Run a coils Test
+#
+# Actually, this tests all Mosfets and Servo Motoers
+#
+# Pinball Machine Project, EPIC Robotz, Fall 2022
+# Epic Robotz, Fall 2020
+# dlb
+
+import time
+import pb_log
+pb_log.disable()
+import time
+import common 
+if common.platform() == "real":
+    import comm_bus
+    comm = comm_bus.CommBus()
+else:
+    comm = None
+
+def pterm(str): 
+    print(str, end="", flush=True)
+
+def flipper_fire(txt, mask):
+    pterm("  " + txt)
+    cmd = [11, mask, 1, 1, 0]
+    rsp = comm.node_io(4, cmd)
+    if rsp == None: pterm("No response. ")
+    else:
+        pterm("Energized. ")
+        time.sleep(2.0)
+        cmd = [11, mask, 1, 0, 0]
+        rsp = comm.node_io(4, cmd)
+        if rsp == None:
+            pterm("No response on release. ")
+        else: pterm("Released. ")
+        cmd = [11, mask, 0, 0, 0]
+        rsp = comm.node_io(4, cmd)
+        if rsp == None:
+            pterm("No response on reset. ")
+        else: pterm("Reset. ")
+    pterm("\n")
+
+def lift_motor():
+    pterm("  Lift Motor: ")
+    cmd = [14, 1, 1, 0]
+    rsp = comm.node_io(4, cmd)
+    if rsp == None: pterm("No response. ")
+    else:
+        pterm("Motor On. ")
+        time.sleep(3.0)
+        cmd = [14, 1, 0, 0]
+        rsp = comm.node_io(4, cmd)
+        if rsp == None:
+            pterm("No response on shutdown. ")
+        else: pterm("Motor Off. ")
+        time.sleep(1.0)
+    print("")
+
+def ball_cycle():
+    pterm("  Ball Cycle: ")
+    cmd = [15, 1]
+    rsp = comm.node_io(4, cmd)
+    if rsp == None: pterm("No response. ")
+    else:
+        pterm("Gate Open. ")
+        time.sleep(3.0)
+        cmd = [15, 0]
+        rsp = comm.node_io(4, cmd)
+        if rsp == None:
+            pterm("No response on close. ")
+        else: pterm("Gate Closed. ")
+        time.sleep(1.0)
+    print("")
+
+def drop_hole():
+    pterm("  Drop Hole Eject: ")
+    cmd = [14, 2, 1, 50]
+    rsp = comm.node_io(4, cmd)
+    if rsp == None: pterm("No response. ")
+    else: 
+        pterm("Ejected. ")
+        time.sleep(2.0)
+        pterm("  (Auto Close)")
+    print("")
+
+def bumper(txt, mask):
+    pterm("  " + txt)
+    cmd = [22, mask, 1]
+    rsp = comm.node_io(5, cmd)
+    if rsp == None: pterm("No response. ")
+    else:
+        pterm("Coil Triggered. ")
+        cmd = [25, mask, 255]
+        rsp = comm.node(5, cmd) 
+        if rsp == None: pterm("No response to lamp on. ")
+        else: pterm(" Lamp On. ")
+        time.sleep(1.0)
+        cmd = [25, mask, 0]
+        rsp = comm.node(5, cmd)
+        if rsp is None: pterm("No response to lamp off. ")
+        else: pterm(" Lamp Off. ")
+        time.sleep(1.0)
+    print("")
+
+def kicker(txt, mask):
+    pterm("  " + txt)
+    cmd = [22, mask, 1]
+    rsp = comm.node_io(6, cmd)
+    if rsp == None: pterm("No response. ")
+    else:
+        pterm("Coil Triggered. ")
+        time.sleep(2.0)
+    print("")
+
+def lights(txt, node, mask):
+    pterm("  " + txt)
+    cmd = [9, mask, 255, 25]
+    rsp = comm.node_io(node, cmd)
+    if rsp == None: pterm("No response. ")
+    else:
+        pterm("Lamp Flash. ")
+        time.sleep(2.0)
+    print("")
+
+def run():
+    if comm == None:
+        print("Sorry, this program must be run on the real pinball machine.")
+        return
+    print("")
+    print("Pinball Machine -- Coils Test")
+    flipper_fire("Right Flipper: ", 1)
+    flipper_fire("Left Flipper: ",  2)
+    flipper_fire("Third Flipper: ", 4)
+    ball_cycle()
+    drop_hole()
+    bumper("Right Jet Bumper: ", 1)
+    bumper("Left Jet Bumper: ", 1)
+    bumper("Bottom Jet Bumper: ", 1)
+    kicker("Right Kicker: ", 1)
+    kicker("Left Kicker: ", 2)
+    kicker("Top Kicker: ", 4)
+    lights("Panic Lamp: ", 3, 1)
+    lights("Lane Lamps: ", 3, 2)
+    lights("Decor Lamp 1:", 2,  1)
+    lights("Decor Lamp 2:", 2,  2)
+    lights("Decor Lamp 3:", 2,  4)
+    lights("Decor Lamp 4:", 2,  8)
+    lights("Decor Lamp 5:", 2, 16)
+    lights("Decor Lamp 6:", 2, 32)
+
+if __name__ == "__main__":
+    run()
+
+

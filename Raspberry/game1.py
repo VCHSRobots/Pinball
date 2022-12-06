@@ -125,7 +125,7 @@ class PinballMachine():
         self.sound(sm.S_MATCH_END)
         self._game_active = False
         self._flippers.eject_drop_ball()
-        self._flippers.disable_main_flippers()
+        self._flippers.disable_flippers()
         self._flippers.disable_thrid_flipper()
         self._bumpers.disable()
         self._kickers.disable()
@@ -182,7 +182,7 @@ class PinballMachine():
                 if self._nballs < 0: self._nballs = 0
                 if self._nballs > 0: self.sound(sm.S_REDCARD)
                 else: 
-                    self._set_game_over() 
+                    self.set_game_over() 
 
             if e in ["F8"]:
                 self.sound(sm.S_DING_TARGET)
