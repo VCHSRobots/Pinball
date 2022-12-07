@@ -8,8 +8,10 @@ import common
 
 if common.platform() == "real":
     log_file_path = "/home/pi/pb/logs"
+    log_separator = "/"
 else:
     log_file_path = "C:\\Users\\dalbr\\Documents\\Projects\\Epic_Robots_2023\\PinballMachine\\Software\\logs"
+    log_separator = "\\"
 
 logfile = None
 logdebug = True  # if should be logging debug messages
@@ -28,6 +30,23 @@ def disable():
 def enable():
     global logging_enabled 
     logging_enabled = True
+
+def get_last_log_file():
+    flist = os.listdir(log_file_path)
+    maxnum = 0
+    last_file = None
+    for f in flist:
+        if not f.startswith("pb_"): continue
+        if not f.endswith(".log"): continue
+        try:
+            num = int(f[3:8])
+        except:
+            continue
+        if num > maxnum: 
+            maxnum = num
+            last_file = f
+    if last_file is None: return None
+    return log_file_path + log_separator + last_file
 
 def log_init():
     '''Initialize the logger. Must be called at least once to enable logging to file.'''

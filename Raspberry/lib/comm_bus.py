@@ -18,6 +18,10 @@ class CommBus():
         self._ser = None
         self._txon = False
         self._tm_last_msg = time.monotonic() - 1.0
+        self._logging = False       # Turn off most common log outputs
+        self.clear_counts()
+
+    def clear_counts(self):
         self._bus_cycles = 0        # Total number of bus IO operations attempted
         self._no_response_errs = 0  # Number of non-responsive queries
         self._checksum_errs = 0     # Number of rejected msg due to checksum mismatch
@@ -29,6 +33,22 @@ class CommBus():
         gpio.setmode(gpio.BOARD)
         gpio.setup(_tx_enable_pin, gpio.OUT, initial=gpio.LOW)
         self._ser = serial.Serial("/dev/ttyAMA0", baudrate=115200, write_timeout=0.060, timeout=0, parity='N', stopbits=1)
+
+    def enable_logging(self):
+        self._logging = True
+
+    def disable_logging(self):
+        self._logging = False
+
+    def report(self):
+        ''' Returns a map of stats.'''
+        rp = {} 
+        rp["Bus Cycles"] = self._bus_cycles
+        rp["Response Errors"] = self._no_response_errs
+        rp["Checksum Errors"] = self._checksum_errs
+        rp["Write Errors"] = self._write_errs
+        rp["Protocall Errors"] = self._protocol_errs
+        return rp
 
     def _enable_tx(self):
         gpio.output(_tx_enable_pin, gpio.HIGH)
@@ -97,6 +117,7 @@ class CommBus():
 
         trecord = []
         tr0 = self.t_us()
+        self._bus_cycles += 1
         # Send the message.  Do this by first enabling the transmitter.
         try:
             self._enable_tx() 
@@ -145,7 +166,7 @@ class CommBus():
             tnow = time.monotonic()
             if tnow - tsent > 0.01:
                 # No response.  
-                log(f'No response from slave node. Node={addr}  {ncnt}' )
+                if self._logging: log(f'No response from slave node. Node={addr}  {ncnt}' )
                 self._no_response_errs += 1
                 return None
             # We set the mode to not-blocking!  We might not get anything back
@@ -153,16 +174,16 @@ class CommBus():
             # every chance to respond.
             buf = self._ser.read(50)
             if len(buf) <= 0:
-                logd(f'No bytes on serial port. {ncnt}')
+                if self._logging: logd(f'No bytes on serial port. {ncnt}')
             if len(buf) > 0:
-                logd(f'{len(buf)} bytes read on serial port. {ncnt}')
-                logd("Bytes = " + self._bytes_to_str(buf))
+                if self._logging: logd(f'{len(buf)} bytes read on serial port. {ncnt}')
+                if self._logging: logd("Bytes = " + self._bytes_to_str(buf))
                 # process the input bytes here.
                 for c in buf:
                     if imsgptr == 0: 
                         # process the sync byte
                         if c != ord('e') and c != ord('E'):
-                            log(f"Message protocol fail.  Illegal first byte ({c})")
+                            if self._logging: log(f"Message protocol fail.  Illegal first byte ({c})")
                             self._protocol_errs += 1
                             return None
                         in_msgbuf[0] = c
@@ -174,7 +195,7 @@ class CommBus():
                         addr_temp = (c >> 4) & 0x000F
                         datlen = c & 0x000F
                         if addr_temp != addr:
-                            log(f"Message fail. Returned address from slave incorrect. ({addr} != {addr_temp}).")
+                            if self._logging: log(f"Message fail. Returned address from slave incorrect. ({addr} != {addr_temp}).")
                             self._protocol_errs += 1
                             return
                         imsgptr = 2
@@ -183,9 +204,9 @@ class CommBus():
                             # this should be the check sum byte.
                             cksum = self._checksum(in_msgbuf, imsgptr)
                             if c != cksum:
-                                log(f"Checksum fail on receive. Found {c}. Should be {cksum}.")
-                                log(f"Message payload size = {datlen}")
-                                log(f"Bytes in msg = {self._bytes_to_str(in_msgbuf)}")
+                                if self._logging: log(f"Checksum fail on receive. Found {c}. Should be {cksum}.")
+                                if self._logging: log(f"Message payload size = {datlen}")
+                                if self._logging: log(f"Bytes in msg = {self._bytes_to_str(in_msgbuf)}")
                                 self._checksum_errs += 1
                                 return None
                             # We have a completed message... check if it is an Echo or really from

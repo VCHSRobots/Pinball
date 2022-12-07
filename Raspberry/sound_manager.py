@@ -90,7 +90,6 @@ sounds = [
         (S_COMPETITION, "Welcome_to_Competition.wav"),
         (S_PLAYOFFS, "You_Made_It_To_Playoffs.wav")]
 
-
 def get_all_sounds():
     '''Returns a list of ids for all sounds in the system.'''
     ids = []
@@ -101,8 +100,7 @@ def get_sound_file(id):
     '''Given a id, returns a sound file name, with path,
     or None if no matching file.'''
     for i, f in sounds:
-        if i == id:
-            return sound_path + f
+        if i == id: return f
     return None
     
 class SoundManager():
@@ -114,18 +112,21 @@ class SoundManager():
         self._sounds = {} 
         for id in get_all_sounds():
             f = get_sound_file(id) 
-            if f is None: continue 
+            if f is None: continue
+            fpath = sound_path + f 
             try:
-                s = pyg.mixer.Sound(f) 
-                self._sounds[id] = s
+                s = pyg.mixer.Sound(fpath) 
+                self._sounds[id] = (s, f)
             except Exception as err:
-                log(f"Error: Sound for id={id}, file={f} not loaded. Reason: {err}")
+                log(f"Error: Sound for id={id}, file={fpath} not loaded. Reason: {err}")
                 self._sounds[id] = None 
         
     def play(self, id):
         if id in self._sounds:
             if self._sounds[id] is not None:
-                self._sounds[id].play() 
+                s, n = self._sounds[id]
+                s.play()
+                log(f"Playing Sound id ({id}): {n}") 
         else:
             log(f"Warning: Attempt to play non-existing sound.  id={id}.")
     

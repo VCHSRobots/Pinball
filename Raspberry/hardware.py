@@ -53,7 +53,7 @@ class Node():
         self._nsw = nodes[node_addr]['nsw']
         self._ibs = nodes[node_addr]['ibs']
         self._designator = nodes[node_addr]['designator']
-        self._active = False 
+        self._active = True 
         self._reported_cmd_cnt = 0 
         self._reported_err_cnt = 0 
         self._response_errs = 0
@@ -61,7 +61,7 @@ class Node():
         self._sw_counts = []
         self._sw_state = 0
         self._last_comm_attemp_time = 0
-        self._last_comm_success_time = 0
+        self._last_comm_success_time = time.monotonic()
         self._cmd_queue = [] 
         for i in range(self._nsw): self._sw_counts.append(0)
 
@@ -84,11 +84,11 @@ class Node():
         self._last_comm_attemp_time = time.monotonic()
         if rsp == None: 
             telp = time.monotonic() - self._last_comm_success_time
-            if telp > 3.00:
+            if telp > 5.00:
+                if self._active: log(f"Node {self._name} going inactive. elp: {telp}, time: {time.monotonic()}, succ_t0: {self._last_comm_success_time}")
                 self._active = False
-                log(f"Node {self._name} going inactive.") 
             return None
-        self._last_comm_success = time.monotonic() 
+        self._last_comm_success_time = time.monotonic() 
         if not self._active: log(f"Node {self._name} going active.") 
         self._active = True
         if self._ibs == 0: return events
@@ -137,7 +137,7 @@ class Node():
             if len(self._cmd_queue) > 0: dat = self._cmd_queue.pop()
             temp_events = self._attempt_comm(dat)
             if temp_events is None: 
-                self._cmd_queue.append(dat)
+                if dat is not None: self._cmd_queue.append(dat)
                 return events 
             events.extend(temp_events)
             if len(self._cmd_queue) == 0: return events
@@ -162,6 +162,13 @@ class Hardware():
         '''Queue's a command to be sent to a node on the next update.  Does not block. '''
         self._nodes[addr].queue_command(dat)
 
+    def report_to_log(self):
+        cmap = comm.report()
+        s = "" 
+        for k in cmap:
+            s += f"{k}: {cmap[k]}   "
+        log(s)
+    
     def update(self):
         events = [] 
         # Start by adding simulated events.

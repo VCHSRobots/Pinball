@@ -1,0 +1,15 @@
+#! /usr/bin/python
+# last_log -- prints out the last log file
+#
+# Pinball Machine Project, EPIC Robotz, Fall 2022
+# Epic Robotz, Fall 2020
+# dlb
+
+import pb_log
+pb_log.disable()
+
+last_file = pb_log.get_last_log_file() 
+if last_file is None:
+    print("<No log file found.>")
+else: print(last_file)
+

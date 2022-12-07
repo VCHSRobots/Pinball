@@ -132,8 +132,9 @@ class ScreenRobotParts():
         self._partsurfaces = []
         if common.platform() == "real": self._partpath = "/home/pi/pb/assets/"
         else: self._partpath = "assets"
-        self._partfiles = ["RobotParts_1.png", "RobotParts_2.png", "RobotParts_3.png", "RobotParts_4.png",
-                           "RobotParts_5.png", "RobotParts_6.png", "RobotParts_7.png"]
+        self._partfiles = ["RobotParts_01.png", "RobotParts_02.png", "RobotParts_03.png", "RobotParts_04.png",
+                           "RobotParts_05.png", "RobotParts_06.png", "RobotParts_07.png", "RobotParts_08.png",
+                           "RobotParts_09.png", "RobotParts_10.png", "RobotParts_11.png", "RobotParts_12.png"]
         try:
             for f in self._partfiles:
                 ff = os.path.join(self._partpath, f) 
@@ -148,7 +149,7 @@ class ScreenRobotParts():
         pyg.draw.rect(surface, (21, 61, 122), r)
         if self._partsurfaces is None: return
         if partnum <= 0: return 
-        if partnum >= 7: partnum = 6 
+        if partnum >= len(self._partsurfaces): partnum = len(self._partsurfaces) - 1
         surface.blit(self._partsurfaces[partnum], (566, 757))
         
 class Screen():

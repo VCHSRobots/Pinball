@@ -1,0 +1,13 @@
+#! /usr/bin/python
+# clear_highscore -- Clears the highscore
+#
+# Pinball Machine Project, EPIC Robotz, Fall 2022
+# Epic Robotz, Fall 2020
+# dlb
+
+import highscore 
+
+okay = highscore.save_highscore(0)
+if okay: print("Highscore Cleared.")
+else: print("Error while clearing HighScore")
+

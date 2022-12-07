@@ -5,20 +5,17 @@
 import time
 import pygame as pyg
 import common 
-if common.platform() == "real":
-    import comm_bus
-    comm = comm_bus.CommBus()
-else:
-    comm = None
 import pb_log
 from pb_log import log, logd 
 import screen 
 import hardware 
 import sound_manager as sm
-import event_manager
+import scorebox_lights as slights 
+import playfield_lights as plights
 import flippers
 import bumpers
 import kickers
+import highscore
 
 secs_per_day = 2.5  # Controls the speed of the build timer
 
@@ -29,21 +26,22 @@ class PinballMachine():
         self._screen = screen.Screen()
         self._hw = hardware.Hardware() 
         self._sound = sm.SoundManager() 
+        self._slights = slights.ScoreBoxLights(self, self._hw, self._sound) 
+        self._plights = plights.PlayfieldLights(self, self._hw, self._sound)
         self._flippers = flippers.Flippers(self, self._hw, self._sound)
         self._bumpers = bumpers.Bumpers(self, self._hw, self._sound)
         self._kickers = kickers.Kickers(self, self._hw, self._sound)
-        self._flippers.eject_drop_ball()
-        self._high_score = 0
-        self._nballs = 0 
+        self._highscore = highscore.get_highscore()
+        self._nballs = 0   # Number of balls remaining in game, including ball in play.
+        self._nballs_on_field = 0  # Number of balls on the playing field.
         self._game_active = False
         self._drop_ball_pending = False
         self._drop_ball_t0 = time.monotonic()
         self._prevent_new_game = True
         self._prevent_game_t0 = time.monotonic()
+        self._last_report_t0 = time.monotonic()
         self.reset_score()
         self._screen.reset_score()
-        if comm is not None:
-            comm.begin()
 
     def get_game_phase_text(self):
         if not self._game_active: return("<Game Over>", "Press Start for", "a new game", "")
@@ -106,28 +104,41 @@ class PinballMachine():
         self._last_day_change_time = time.monotonic()
         self._score = 0
         self._nballs = 0 
+        self._nballs_on_field = 0
         self._iday = -1
         self._robot_parts = 0 
         self._game_active = False 
+        self._highscore = highscore.get_highscore()
 
     def start_new_game(self):
+        log("Setting State to New Game.")
         self.reset_score()
+        self._slights.on_new_game()
         self._flippers.enable_main_flippers()
         self._flippers.disable_thrid_flipper()
         self._bumpers.enable()
         self._kickers.enable()
-        self._nballs = 3
         self._game_active = True
         self._sound.play(sm.S_MATCH_START)
         self._last_day_change_time = time.monotonic()
         self._flippers.new_ball()
+        self._nballs = 3
+        self._nballs_on_field = 1
 
     def set_game_over(self, EndingSound=True):
+        log("Setting State to Game Over.")
+        self._highscore = highscore.get_highscore()
+        if self._score > self._highscore: 
+            log(f"Setting new highscore: {self._highscore} -> {self._score}")
+            self._highscore = self._score 
+            okay = highscore.save_highscore(self._score) 
+            if not okay: log(f"Unable to save highscore.")
         if EndingSound: self.sound(sm.S_MATCH_END)
         self._game_active = False
+        self._slights.on_game_over()
+        self._plights.on_game_over()
         self._flippers.eject_drop_ball()
         self._flippers.disable_flippers()
-        self._flippers.disable_thrid_flipper()
         self._bumpers.disable()
         self._kickers.disable()
         self._prevent_new_game = True 
@@ -136,12 +147,42 @@ class PinballMachine():
     def add_to_score(self, val):
         if self._nballs > 0 and self._game_active:
             self._score += val
-        if self._score > self._high_score: self._high_score = self._score
 
     def add_to_robot_parts(self):
         if self._nballs > 0 and self._game_active:
             self._robot_parts += 1 
-        
+            log(f"Adding to Robot Parts. Current count: {self._robot_parts}")
+
+    def eject_dropball(self):
+        self._flippers.eject_drop_ball() 
+        self._drop_ball_pending = False
+
+    def manage_dropball(self):
+        if self._drop_ball_pending:
+            tnow = time.monotonic()
+            if tnow - self._drop_ball_t0 < 20: return 
+            self.eject_dropball()
+
+    def ball_drained(self):
+        '''Come here when a ball has been detected in the drain hole.'''
+        if not self._game_active: return 
+        self._nballs_on_field -= 1 
+        if self._nballs_on_field > 0:
+            if self._flippers.ball_in_hole():
+                self.eject_dropball() 
+            return 
+        if self._nballs_on_field < 0: self._nballs_on_field = 0
+        self._nballs -= 1 
+        if self._nballs <= 0:
+            self._nballs = 0 
+            self.set_game_over() 
+            return
+        self.sound(sm.S_REDCARD)
+        self._flippers.new_ball() 
+        self._nballs_on_field += 1
+        self._slights.on_new_ball()
+        self._plights.on_new_ball()
+
     def sound(self, id):
         if self._game_active:
             self._sound.play(id)
@@ -149,8 +190,12 @@ class PinballMachine():
     def process_hardware_events(self):
         events = self._hw.get_events()
         for e in events:
+            log(f"Event: {e}")
             if e == "F3": # restart
-                if self._game_active: continue
+                if self._game_active: 
+                    # Shortcut to spinning the lift motor some more.
+                    self._flippers.lift_motor_cycle(1.5)
+                    continue
                 if self._prevent_new_game and time.monotonic() - self._prevent_game_t0 < 2.0: continue 
                 self._prevent_new_game = False
                 self.start_new_game()
@@ -179,24 +224,20 @@ class PinballMachine():
                 self.add_to_score(50) 
                 self.sound(sm.S_DING_JET_BUMPERS)
             if e in ["F7"]:
-                self._nballs -= 1
-                if self._nballs < 0: self._nballs = 0
-                if self._nballs == 0: 
-                    self.set_game_over()
-                    continue
-                self.sound(sm.S_REDCARD)
-                self._flippers.new_ball() 
+                self.ball_drained()
             if e in ["F8"]:
                 self.sound(sm.S_DING_TARGET)
                 self._drop_ball_pending = True 
                 self._drop_ball_t0 = time.monotonic()
                 self.add_to_score(1000)
-                self._nballs += 1
+                self._nballs_on_field += 1
                 self._flippers.new_ball()
+                self._slights.on_drop_hole()
+                self._plights.on_drop_hole()
                     
     def show_score(self):
         self._screen.score().main_score = self._score
-        self._screen.score().high_score = self._high_score
+        self._screen.score().high_score = self._highscore
         self._screen.score().day = self._iday
         self._screen.score().number_of_balls = self._nballs
         gp, g1, g2, g3 = self.get_game_phase_text()
@@ -207,6 +248,13 @@ class PinballMachine():
         self._screen.score().robot_parts = self._robot_parts
         self._screen.update()
 
+    def make_reports(self):
+        tnow = time.monotonic()
+        if tnow - self._last_report_t0 < 10.0: return
+        self._highscore = highscore.get_highscore()  # Kluge -- change this to somesore of notification sys
+        self._last_report_t0 = tnow 
+        self._hw.report_to_log() 
+
     def run(self):
         self.reset_score() 
         self.set_game_over(EndingSound=False)
@@ -214,6 +262,8 @@ class PinballMachine():
             #time.sleep(0.1)
             self._hw.update() 
             pyg.event.pump()
+            self._slights.update()
+            self._plights.update()
             self._flippers.update()
             self._kickers.update()
             self._bumpers.update()
@@ -225,7 +275,9 @@ class PinballMachine():
                     self._hw.simulate(e.key)
             self.advance_calendar()
             self.process_hardware_events()
+            self.manage_dropball()
             self.show_score()
+            self.make_reports()
 
 if __name__ == "__main__":
     pb_log.log_init() 
