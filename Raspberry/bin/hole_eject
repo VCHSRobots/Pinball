@@ -1,0 +1,37 @@
+#! /usr/bin/python
+# hole_eject -- eject ball out of drop hole
+#
+# Pinball Machine Project, EPIC Robotz, Fall 2022
+# Epic Robotz, Fall 2020
+# dlb
+
+import time
+import sys
+import pb_log
+pb_log.disable()
+import time
+import common 
+if common.platform() == "real":
+    import comm_bus
+    comm = comm_bus.CommBus()
+else:
+    comm = None
+
+def run():
+    if comm == None:
+        print("Sorry, this program must be run on the real pinball machine.")
+        return
+    comm.begin()
+    cmd = [13, 4, 100]
+    rsp = comm.node_io(4, cmd)
+    if rsp is None:
+      print("No response for pwm set.")
+      return
+    cmd = [14, 4, 1, 100]
+    rsp = comm.node_io(4, cmd)
+    if rsp is None:
+      print("No response for coil trigger.")
+      return
+
+if __name__ == "__main__":
+    run()

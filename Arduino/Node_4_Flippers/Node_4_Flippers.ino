@@ -203,7 +203,7 @@ uint32_t flipper_ctrl_t0[] = {0, 0, 0};
 // Input Parameters and states for coils
 bool coil_energized[] = {false, false, false};
 uint32_t coil_t0[] = {0, 0, 0};
-uint32_t coil_delay[] = {0, 0, 0};
+uint32_t coil_delay[] = {10, 10, 10};
 uint8_t coil_pwm[] = {255, 255, 255}; 
 
 // Parameters and states for input switches.

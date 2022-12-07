@@ -120,9 +120,10 @@ class PinballMachine():
         self._game_active = True
         self._sound.play(sm.S_MATCH_START)
         self._last_day_change_time = time.monotonic()
+        self._flippers.new_ball()
 
-    def set_game_over(self):
-        self.sound(sm.S_MATCH_END)
+    def set_game_over(self, EndingSound=True):
+        if EndingSound: self.sound(sm.S_MATCH_END)
         self._game_active = False
         self._flippers.eject_drop_ball()
         self._flippers.disable_flippers()
@@ -150,7 +151,7 @@ class PinballMachine():
         for e in events:
             if e == "F3": # restart
                 if self._game_active: continue
-                if self._prevent_new_game and time.monotonic() - self._prevent_game_t0 < 5.0: continue 
+                if self._prevent_new_game and time.monotonic() - self._prevent_game_t0 < 2.0: continue 
                 self._prevent_new_game = False
                 self.start_new_game()
                 return 
@@ -180,10 +181,11 @@ class PinballMachine():
             if e in ["F7"]:
                 self._nballs -= 1
                 if self._nballs < 0: self._nballs = 0
-                if self._nballs > 0: self.sound(sm.S_REDCARD)
-                else: 
-                    self.set_game_over() 
-
+                if self._nballs == 0: 
+                    self.set_game_over()
+                    continue
+                self.sound(sm.S_REDCARD)
+                self._flippers.new_ball() 
             if e in ["F8"]:
                 self.sound(sm.S_DING_TARGET)
                 self._drop_ball_pending = True 
@@ -207,10 +209,14 @@ class PinballMachine():
 
     def run(self):
         self.reset_score() 
+        self.set_game_over(EndingSound=False)
         while(True):   # This is the Main Loop for the Game
             #time.sleep(0.1)
             self._hw.update() 
             pyg.event.pump()
+            self._flippers.update()
+            self._kickers.update()
+            self._bumpers.update()
             for e in pyg.event.get():
                 if e.type == pyg.QUIT or (e.type == pyg.KEYUP and e.key == pyg.K_ESCAPE): 
                     pyg.quit()

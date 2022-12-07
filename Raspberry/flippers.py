@@ -15,20 +15,20 @@ class Flippers():
         self._hw = hw
         self._sound = sm
         self._queue = event_manager.EventManager()
-
+    
     def new_ball(self):
         '''Puts a new ball into the game.'''
         if not self.ball_ready_to_cycle():
             log("Trying to put a non-existant ball into play.")
         cmd = [15, 1]  # Turn on the cycle servo      
         self._hw.send_command(self._nodeadr, cmd)
-        cmd = [14, 0b00000001, 1, 0]  # Turn on the lift motor, to run indefinate.
+        cmd = [14, 0b00000001, 1, 0, 0]  # Turn on the lift motor, to run indefinate.
         self._hw.send_command(self._nodeadr, cmd) 
         # Queue up an event to return the servo to normal
         ev = {'cmd': [15, 0]}
         self._queue.add_event(ev, 2.0)
         # Queue up an event to stop the lift motor
-        ev = {'cmd': [14, 0b00000001, 0, 0]}
+        ev = {'cmd': [14, 0b00000001, 0, 0, 0]}
         self._queue.add_event(ev, 3.0)
 
     def process_hardware_events(self, events):
@@ -80,5 +80,8 @@ class Flippers():
         return False 
 
     def eject_drop_ball(self):
-        cmd = [14, 0b00000010, 1, 50]  # turns on  coil #2 for 50 ms.
+        # Set the hole ejector to a reasonable pwm
+        cmd = [13, 0b00000100, 100]
+        self._hw.send_command(self._nodeadr, cmd)
+        cmd = [14, 0b00000100, 1, 100]  # turns on  coil #3 for 100 ms.
         self._hw.send_command(self._nodeadr, cmd)

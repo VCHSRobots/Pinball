@@ -23,7 +23,7 @@ class EventManager():
         saved_events = []
         tnow = time.monotonic()
         while(len(self._cmd_queue) > 0):
-            ev = self.cmd_queue.pop()
+            ev = self._cmd_queue.pop()
             if tnow > ev["tfire"]: evout.insert(0, ev)
             else: saved_events.insert(0, ev) 
         self._cmd_queue = saved_events 

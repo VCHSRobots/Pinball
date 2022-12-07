@@ -43,13 +43,13 @@ def flipper_fire(txt, mask):
 
 def lift_motor():
     pterm("  Lift Motor: ")
-    cmd = [14, 1, 1, 0]
+    cmd = [14, 1, 1, 0, 0]
     rsp = comm.node_io(4, cmd)
     if rsp == None: pterm("No response. ")
     else:
         pterm("Motor On. ")
         time.sleep(3.0)
-        cmd = [14, 1, 0, 0]
+        cmd = [14, 1, 0, 0, 0]
         rsp = comm.node_io(4, cmd)
         if rsp == None:
             pterm("No response on shutdown. ")
@@ -75,7 +75,7 @@ def ball_cycle():
 
 def drop_hole():
     pterm("  Drop Hole Eject: ")
-    cmd = [14, 2, 1, 50]
+    cmd = [14, 4, 1, 50]
     rsp = comm.node_io(4, cmd)
     if rsp == None: pterm("No response. ")
     else: 
@@ -92,12 +92,12 @@ def bumper(txt, mask):
     else:
         pterm("Coil Triggered. ")
         cmd = [25, mask, 255]
-        rsp = comm.node(5, cmd) 
+        rsp = comm.node_io(5, cmd) 
         if rsp == None: pterm("No response to lamp on. ")
         else: pterm(" Lamp On. ")
         time.sleep(1.0)
         cmd = [25, mask, 0]
-        rsp = comm.node(5, cmd)
+        rsp = comm.node_io(5, cmd)
         if rsp is None: pterm("No response to lamp off. ")
         else: pterm(" Lamp Off. ")
         time.sleep(1.0)
@@ -127,16 +127,18 @@ def run():
     if comm == None:
         print("Sorry, this program must be run on the real pinball machine.")
         return
+    comm.begin()
     print("")
     print("Pinball Machine -- Coils Test")
     flipper_fire("Right Flipper: ", 1)
     flipper_fire("Left Flipper: ",  2)
     flipper_fire("Third Flipper: ", 4)
     ball_cycle()
+    lift_motor()
     drop_hole()
     bumper("Right Jet Bumper: ", 1)
-    bumper("Left Jet Bumper: ", 1)
-    bumper("Bottom Jet Bumper: ", 1)
+    bumper("Left Jet Bumper: ", 2)
+    bumper("Bottom Jet Bumper: ", 4)
     kicker("Right Kicker: ", 1)
     kicker("Left Kicker: ", 2)
     kicker("Top Kicker: ", 4)
