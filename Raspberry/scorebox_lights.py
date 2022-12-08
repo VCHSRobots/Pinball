@@ -10,7 +10,7 @@ class ScoreBoxLights():
     ''' Takes care of score box lights'''
 
     def __init__(self, gameapp, hw, sm):
-        self._nodeadr = hardware.NODE_PLIGHTS
+        self._nodeadr = hardware.NODE_BLIGHTS
         self._game = gameapp
         self._hw = hw
         self._sound = sm
