@@ -26,6 +26,7 @@ class Score():
     game_hint3 = "Try Hard!"
     robot_parts = 3
     day = 0
+    out_of_order = False
 
 class ScreenCalendar():
     '''Draws a calendar to represent time passage.'''
@@ -199,6 +200,7 @@ class Screen():
         self._score.err_msg = ""
         self._score.robot_parts = 0 
         self._score.day = 0
+        self._score.out_of_order = False
 
     def report_score(self):
         print(f"Main Score: {self._score.main_score}")
@@ -230,6 +232,9 @@ class Screen():
             eval.render(self._screen)
         self._robotparts.render(self._screen, self._score.robot_parts)
         self._calendar.render(self._screen, self._score.day)
+        if self._score.out_of_order:
+            pyg.draw.line(self._screen, (255,0,0), (0, 0), (1919, 1079), width=10)
+            pyg.draw.line(self._screen, (255,0,0), (1919, 0), (0, 1079), width=10)
         pyg.display.update()
         return True
 

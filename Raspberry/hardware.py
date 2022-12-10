@@ -26,7 +26,7 @@ else:
     comm = None
 import pb_log
 from pb_log import log, logd 
-import screen 
+import config
 
 NODE_BLIGHTS  = 2
 NODE_PLIGHTS  = 3
@@ -45,6 +45,10 @@ nodes = {NODE_BLIGHTS:  {'name': "S Lts",  "nsw":  0, "ibs": 0, "designator":'S'
          NODE_LANES:    {'name': "Lanes",  "nsw": 11, "ibs": 2, "designator":'L'},
          NODE_TARGETS:  {'name': "Targs",  "nsw":  8, "ibs": 2, "designator":'T'} }
     #    NODE_TEST:     {'name': "Test ",  "nsw":  0, "ibs": 1} }
+
+completed_cmds = []
+dropped_cmds = []
+last_cmd_id = 0
 
 class Node():
     def __init__(self, node_addr):
@@ -75,17 +79,21 @@ class Node():
     def get_switch_state(self):
         return self._sw_state
 
-    def queue_command(self, dat):
-        self._cmd_queue.insert(0, dat)
+    def queue_command(self, dat): 
+        global last_cmd_id
+        last_cmd_id += 1
+        self._cmd_queue.insert(0, (last_cmd_id, dat))
+        return last_cmd_id
 
     def _attempt_comm(self, dat):
         events = []
+        if not self._node_addr in config.get_active_nodes(): return events
         rsp = comm.node_io(self._node_addr, dat) 
         self._last_comm_attemp_time = time.monotonic()
         if rsp == None: 
             telp = time.monotonic() - self._last_comm_success_time
             if telp > 5.00:
-                if self._active: log(f"Node {self._name} going inactive. elp: {telp}, time: {time.monotonic()}, succ_t0: {self._last_comm_success_time}")
+                if self._active: log(f"Node {self._name} going inactive.")
                 self._active = False
             return None
         self._last_comm_success_time = time.monotonic() 
@@ -122,11 +130,14 @@ class Node():
        
     def update(self):
         ''' Update the node, and return any new events.'''
+        global completed_cmds, dropped_cmds
         events = [] 
         if comm is None: return events
         if not self._active:
             if len(self._cmd_queue) > 0:
                 log(f"Node {self._name} is not active, {len(self._cmd_queue)} commands dropped.")
+                for id, _ in self._cmd_queue:
+                    dropped_cmds.append(id)
                 self._cmd_queue = [] 
             if self._last_comm_success_time == 0: twait = 5 
             else: twait = 1.5 
@@ -134,11 +145,14 @@ class Node():
             if telp < twait: return events
         while(True):
             dat = None 
-            if len(self._cmd_queue) > 0: dat = self._cmd_queue.pop()
+            id = -1
+            if len(self._cmd_queue) > 0: id, dat = self._cmd_queue.pop()
             temp_events = self._attempt_comm(dat)
             if temp_events is None: 
-                if dat is not None: self._cmd_queue.append(dat)
+                if dat is not None: self._cmd_queue.append((id, dat))
                 return events 
+            if id != -1:
+                completed_cmds.append(id)
             events.extend(temp_events)
             if len(self._cmd_queue) == 0: return events
  
@@ -157,12 +171,75 @@ class Hardware():
         self._major_keys = (pyg.K_t, pyg.K_l, pyg.K_f, pyg.K_b, pyg.K_k)
         self._major_key_map = {pyg.K_t: "T", pyg.K_l: "L", pyg.K_f: "F", pyg.K_b: "B", pyg.K_k: "K" }
         self._sim_balls_in_trough = 0
+        self._startup_cmds = []
 
     def send_command(self, addr, dat):
-        '''Queue's a command to be sent to a node on the next update.  Does not block. '''
-        self._nodes[addr].queue_command(dat)
+        '''Queue's a command to be sent to a node on the next update.  Does not block. 
+        Returns an id for the command so that the caller can check if it was successfully 
+        sent at a later time by polling command_done(). '''
+        id = self._nodes[addr].queue_command(dat)
+        return id
+
+    def send_startup_cmd(self, addr, cmd, name=""):
+        '''Queues a command that MUST be executed at startup before regular games can
+        be played.  This is suitable for configuration commands that must be executed
+        for safe play.  After all the startup commands are queued, call conduct_startup(). '''
+        self._startup_cmds.append((addr, cmd, name))
+
+    def conduct_startup(self):
+        '''Issues all the startup commands.  Will block until entire queue is empty.  If
+        the queue cannot be competed, due to some hardware failure -- will return 
+        a displayable error.  Otherwise None is returned. '''
+        ncnt = 0
+        t0 = time.monotonic()
+        errtxt = None
+        active_nodes = config.get_active_nodes()
+        broken_nodes = []
+        for addr, cmd, name in self._startup_cmds:
+            if not addr in active_nodes: continue
+            if addr in broken_nodes: continue
+            tstart = time.monotonic()
+            while True:
+                if comm is None: rsp = []
+                else: rsp = comm.node_io(addr, cmd)
+                if rsp is not None:
+                    if addr in nodes: node_name = nodes[addr]['name']
+                    else: node_name = f"<Unknown>"
+                    log(f"Startup Command Issued on node {node_name}: {name}")
+                    break 
+                if time.monotonic() - tstart > 2.0:
+                    if addr in nodes: node_name = nodes[addr]['name']
+                    else: node_name = f"<Unknown>"
+                    log(f"Startup Command FAILED on node {node_name}: {name} ")
+                    errtxt = f"Node {addr} ({node_name}) not responding."
+                    broken_nodes.append(addr)
+                    break  # we try to issue all commands to other nodes, even on errors
+            ncnt += 1
+        telp = time.monotonic() - t0
+        log(f"{ncnt} startup commands successfully issued in {telp:.2f} seconds.")
+        return errtxt
+
+    def command_done(id):
+        '''Returns true if the command was successfully sent.  If so, thereafter the same
+        id will return false.  If the command has not been successfully sent thus far, false is 
+        returned.''' 
+        global completed_cmds
+        if id in completed_cmds:
+            completed_cmds.remove(id) 
+            return True
+        return False
+
+    def command_dropped(id):
+        '''Returns true if the command was dropped.  If so, thereafter the same id will return
+        false.  If the command was not dropped thus far, false is returned.'''
+        global dropped_cmds
+        if id in dropped_cmds:
+            dropped_cmds.remove(id)
+            return True 
+        return False
 
     def report_to_log(self):
+        if comm is None: return None
         cmap = comm.report()
         s = "" 
         for k in cmap:

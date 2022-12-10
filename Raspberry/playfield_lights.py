@@ -6,6 +6,18 @@ from pb_log import log
 import hardware 
 import event_manager
 
+
+CMD_NEO_RESET     =   1
+CMD_NEO_SINGLE    =   2
+CMD_NEO_SOLID     =   3
+CMD_NEO_WIPE      =   4
+CMD_NEO_CHASE     =   5
+CMD_NEO_BLINK     =   6
+CMD_NEO_DEMO      =   7
+CMD_LAMP_SOLID    =   8
+CMD_LAMP_FLASH    =   9
+CMD_LAMP_MODULATE =  10
+
 class PlayfieldLights():
     ''' Takes care of play field lights.'''
    
@@ -15,6 +27,9 @@ class PlayfieldLights():
         self._hw = hw
         self._sound = sm
         self._queue = event_manager.EventManager()
+
+    def queue_startup_cmds(self):
+        pass
 
     def update(self):
         pass
