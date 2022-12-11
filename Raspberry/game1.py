@@ -21,8 +21,10 @@ import highscore
 import ball_manager
 import event_manager
 import config
+import game_logic
+import logic_lanes 
 
-secs_per_day = 2.5  # Controls the speed of the build timer
+secs_per_day = 2.0  # Controls the speed of the build timer
 
 class PinballMachine():
     '''This class manages the entire pinball machine.'''
@@ -31,6 +33,7 @@ class PinballMachine():
         self._screen = screen.Screen()
         self._hw = hardware.Hardware() 
         self._sound = sm.SoundManager() 
+        self._gl = game_logic.GameLogic(self, self._hw, self._sound)
         self._slights = slights.ScoreBoxLights(self, self._hw, self._sound) 
         self._plights = plights.PlayfieldLights(self, self._hw, self._sound)
         self._flippers = flippers.Flippers(self, self._hw, self._sound)
@@ -39,6 +42,7 @@ class PinballMachine():
         self._lanes = lanes.Lanes(self, self._hw, self._sound)
         self._targets = targets.Targets(self, self._hw, self._sound)
         self._ballmanager = ball_manager.BallManager(self, self._hw, self._flippers)
+        self._lane_logic = logic_lanes.LogicLanes(self, self._hw, self._sound, self._plights)
         self._game_events = event_manager.EventManager()
         self._highscore = highscore.get_highscore()
         self._nballs = 0   # Number of balls remaining in game, including ball in play.
@@ -115,18 +119,18 @@ class PinballMachine():
         if self._iday == 31: self._sound.play(sm.S_BUILD_2)
         if self._iday == 38: self._sound.play(sm.S_BUILD_1)
         if self._iday == 39 and self._score < 200: self._sound.play(sm.S_PANIC_5)
-        if self._iday == 40: self._sound.play(sm.S_COMPETITION)
-        if self._iday == 43: self._sound.play(sm.S_MATCH_START)
-        if self._iday == 46: self._sound.play(sm.S_HINT_1)
-        if self._iday == 49: self._sound.play(sm.S_HINT_2)
-        if self._iday == 51: self._sound.play(sm.S_HINT_3)
-        if self._iday == 54: self._sound.play(sm.S_HINT_4)
-        if self._iday == 57: 
+        if self._iday == 43: self._sound.play(sm.S_COMPETITION)
+        if self._iday == 47: self._sound.play(sm.S_MATCH_START)
+        if self._iday == 51: self._sound.play(sm.S_HINT_1)
+        if self._iday == 56: self._sound.play(sm.S_HINT_2)
+        if self._iday == 60: self._sound.play(sm.S_HINT_3)
+        if self._iday == 64: self._sound.play(sm.S_HINT_4)
+        if self._iday == 70: 
             if self._score > 2000: self._sound.play(sm.S_SEEDED_1)
             elif self._score > 1000: self._sound.play(sm.S_SEEDED_8)
             elif self._score > 400: self._sound.play(sm.S_SEEDED_47)
             else: self._sound.play(sm.S_NOT_SELECTED)
-        if self._iday == 60 and self._score > 5000:
+        if self._iday == 74 and self._score > 5000:
             self._sound.play(sm.S_PLAYOFFS)
 
     def advance_calendar(self):
@@ -204,6 +208,8 @@ class PinballMachine():
         self._flippers.disable_thrid_flipper()
         self._bumpers.enable()
         self._kickers.enable()
+        self._plights.on_new_game()
+        self._lane_logic.on_new_game()
         self._game_active = True
         self._sound.play(sm.S_MATCH_START)
         self._last_day_change_time = time.monotonic()
@@ -266,6 +272,7 @@ class PinballMachine():
             return
         self.sound(sm.S_BALL_LOST)
         if not self._machine_broken:
+            self._plights.on_ball_drain()
             self._flippers.new_ball() 
             self._slights.on_new_ball()
             self._plights.on_new_ball()
@@ -288,10 +295,18 @@ class PinballMachine():
             self._sound.play(id)
 
     def process_hardware_events(self):
+        ''' Process hardware events -- mostly switch closures.  Note that events
+        associated with the ball trough and drop hole (F4-F8) are handled in
+        ball_manager.py instead of here.'''
         events = self._hw.get_events()
         for e in events:
             log(f"Event: {e}")
-            if e == "F3": # restart
+            self._lane_logic.process_hw_event(e)
+            if e == "F1": # Right Flipper Button
+                self.add_to_score(1) 
+            if e == "F2": # Left Flipper Button
+                self.add_to_score(1)
+            if e == "F3": # Start Button
                 if self._game_active: 
                     # Shortcut to spinning the lift motor some more.
                     self._flippers.lift_motor_cycle(1.5)
@@ -305,14 +320,6 @@ class PinballMachine():
                 self.add_to_robot_parts()
                 self.add_to_score(100) 
                 self.sound(sm.S_DING_TARGET)
-            if e in ["F1", "F2"]:
-                self.add_to_score(1) 
-            if e in ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10", "L11"]:
-                self.sound(sm.S_DING_LANE)
-            if e in ["L1"]:
-                self.add_to_score(10) 
-            if e in ["L2", "L3", "L4"]:
-                self.add_to_score(50) 
             if e in ["L5"]:
                 self.add_to_score(150) 
                 self._flippers.enable_thrid_flipper()

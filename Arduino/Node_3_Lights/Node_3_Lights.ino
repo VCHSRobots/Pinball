@@ -590,7 +590,7 @@ void neo_blink(int indx0, int n) {
 // Demo mode: turn all the lights on, chase them,  rainbow.
 void neo_demo() {
     static int demo_frame = 0;
-    static int ipixel = 0;
+    static int ipixel = -1;
     static int ta = 0;
     static int tb = 0;
     static uint32_t last_update = millis();
@@ -606,9 +606,9 @@ void neo_demo() {
     switch(demo_frame) {
         case 0:  { // Fill with Red
                 ipixel++;
-                if(ipixel > NPIXELS) {
+                if(ipixel >= NPIXELS) {
                     demo_frame = 1;
-                    ipixel = 0;
+                    ipixel = -1;
                     return;
                 }
                 strip.setPixelColor(ipixel, strip.Color(255, 0, 0));
@@ -616,9 +616,9 @@ void neo_demo() {
             return;
         case 1:  { // Fill with Green
                 ipixel++;
-                if(ipixel > NPIXELS) {
+                if(ipixel >= NPIXELS) {
                     demo_frame = 2;
-                    ipixel = 0;
+                    ipixel = -1;
                     return;
                 }
                 strip.setPixelColor(ipixel, strip.Color(0, 255, 0));
@@ -626,7 +626,7 @@ void neo_demo() {
             return;
         case 2:  { // Fill with Blue
                 ipixel++;
-                if(ipixel > NPIXELS) {
+                if(ipixel >= NPIXELS) {
                     demo_frame = 3;
                     ta = 0; tb = -1;
                     strip.clear();
@@ -687,7 +687,7 @@ void neo_demo() {
                 firstPixelHue += 256;
                 if(firstPixelHue > 3*65536) {
                     demo_frame = 0;
-                    ipixel = 0;
+                    ipixel = -1;
                     strip.clear();
                     return;
                 } 

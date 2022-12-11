@@ -14,6 +14,7 @@ class EventManager():
 
     def add_event(self, ev, delay=0):
         '''Adds an event to the quene.  The event should be a dict. Delay is in seconds.'''
+        if type(ev) is str: ev = {'name': ev}
         tfire = time.monotonic() + delay 
         ev["tfire"] = tfire
         self._cmd_queue.insert(0, ev)
