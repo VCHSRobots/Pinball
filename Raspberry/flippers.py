@@ -152,20 +152,6 @@ class Flippers():
         if bits & MASK_BALL_4_READY != 0: nballs += 1    # Ball under drain hole
         return nballs
 
-    def balls_ready_to_play(self):
-        ''' Returns True if 3 balls in proper position for game start. Otherwise
-        returns an error message indicating the problem. '''
-        nballs = self.balls_in_trough()
-        if nballs != 3:
-            if nballs > 3: return f"Too many balls! ({nballs})"
-            return f"Too few balls ({nballs}). Need 3."
-        mask_desired = MASK_BALL_1_READY | MASK_BALL_2_READY | MASK_BALL_3_READY
-        mask_allballs = MASK_BALL_1_READY | MASK_BALL_2_READY | MASK_BALL_3_READY | MASK_BALL_4_READY
-        ball_bits = self._hw.get_switch_state(self._nodeadr) & mask_allballs
-        if ball_bits != mask_desired: 
-            return f"Balls out of position. ({ball_bits:>08b})"
-        return True
-
     def ball_ready_to_cycle(self):
         '''Returns true if a ball is ready to cycle.  This means
         that there are two balls against the gate.'''
