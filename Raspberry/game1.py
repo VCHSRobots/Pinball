@@ -19,6 +19,7 @@ import lanes
 import targets
 import highscore
 import ball_manager
+import event_manager
 import config
 
 secs_per_day = 2.5  # Controls the speed of the build timer
@@ -38,18 +39,14 @@ class PinballMachine():
         self._lanes = lanes.Lanes(self, self._hw, self._sound)
         self._targets = targets.Targets(self, self._hw, self._sound)
         self._ballmanager = ball_manager.BallManager(self, self._hw, self._flippers)
+        self._game_events = event_manager.EventManager()
         self._highscore = highscore.get_highscore()
         self._nballs = 0   # Number of balls remaining in game, including ball in play.
         self._game_active = False
-        self._drop_ball_pending = False
-        self._drop_ball_t0 = time.monotonic()
         self._prevent_new_game = True
         self._prevent_game_t0 = time.monotonic()
-        self._last_report_t0 = time.monotonic()
-        self._errmsg = ""
-        self._warning = False
-        self._warning_t0 = time.monotonic()
         self._machine_broken = False
+        self._errmsg = ""
         self.reset_score()
         self._screen.reset_score()
 
@@ -58,15 +55,39 @@ class PinballMachine():
 
     def prevent_new_game(self):
         self._prevent_game = True
-        self._prevent_game_t0 = time.monotonic()
+        self.add_game_event("Allow Game", 3.0)
 
-    def allow_new_game(self):
-        self._prevent_game = False
+    def add_repeating_game_event(self, event, period, delay=0):
+        if type(event) is str: ev = {'name': event}
+        else: ev = event 
+        self._game_events.add_repeating_event(ev, period, delay)
+        log(f"Repeating Game Event Added: {ev['name']} with peiod = {period:0.2f} and delay = {delay:0.2f} secs.")
 
-    def add_game_event(self, event):
-        log(f"Game Event Added: {event}")
-        if event == "Ball Drained": self.ball_drained()
-        if event == "Drop Hole Full": self.ball_dropped()
+    def add_game_event(self, event, delay=0):
+        ''' Adds a game event to the queue for future processing. 
+        The event can be a string, or a map with a name.'''
+        if type(event) is str: ev = {'name': event}
+        else: ev = event
+        self._game_events.add_event(ev, delay) 
+        log(f"Game Event Added: {ev['name']} with delay = {delay:0.2f} secs.")
+
+    def process_game_events(self):
+        evlist = self._game_events.get_fired_events() 
+        for ev in evlist:
+            log(f"Game Event Processed: {ev['name']}.")
+            if ev["name"] == "Ball Drained": self.on_ball_drained() 
+            elif ev["name"] == "Drop Hole Full": self.on_ball_dropped() 
+            elif ev["name"] == "Balls Jammed": self.show_warning("Balls Jammed.")
+            elif ev["name"] == "Balls Unjammed": pass
+            elif ev["name"] == "Clear Warning": self._errmsg = ""
+            elif ev["name"] == "Make Report": self.make_reports()
+            elif ev["name"] == "Check Highscore": self._highscore = highscore.get_highscore()
+            elif ev["name"] == "Allow Game": self._prevent_game = False
+            elif ev["name"] == "Eject Drop Ball": self._flippers.eject_drop_ball()
+            else: log(f"Game Event {ev['name']} not handled.")
+
+    def make_reports(self):
+        self._hw.report_to_log() 
 
     def get_game_phase_text(self):
         if not self._game_active: return("<Game Over>", "Press Start for", "a new game", "")
@@ -155,17 +176,16 @@ class PinballMachine():
                 if telp > 6.0: break
         self.reset_score() 
         self.set_game_over(EndingSound=False)
+        tperiod = config.get_game_param("report_period", 10)
+        self.add_repeating_game_event("Make Report", tperiod)
+        tperiod = config.get_game_param("check_highscore_period", 10)
+        self.add_repeating_game_event("Check Highscore", tperiod)
 
     def show_warning(self, txt):
         self._errmsg = txt 
-        self._warning = True
-        self._warning_t0 = time.monotonic()
-
-    def update_warning(self):
-        if not self._warning: return
-        if time.monotonic() - self._warning_t0 < 3.0: return
-        self._warning = False
-        self._errmsg = ""
+        self._game_events.remove_name("Clear Warning")
+        self.add_game_event("Clear Warning", 3.0)
+        log(f"Showing Warning: {txt}")
 
     def reset_score(self):
         self._last_day_change_time = time.monotonic()
@@ -177,7 +197,7 @@ class PinballMachine():
         self._highscore = highscore.get_highscore()
 
     def start_new_game(self):
-        log("Setting State to New Game.")
+        log("** Starting New Game.")
         self.reset_score()
         self._slights.on_new_game()
         self._flippers.enable_main_flippers()
@@ -191,7 +211,7 @@ class PinballMachine():
         self._nballs = 3
 
     def set_game_over(self, EndingSound=True):
-        log("Setting State to Game Over.")
+        log("** Game Over.")
         self._highscore = highscore.get_highscore()
         if self._score > self._highscore: 
             log(f"Setting new highscore: {self._highscore} -> {self._score}")
@@ -218,35 +238,26 @@ class PinballMachine():
             self._robot_parts += 1 
             log(f"Adding to Robot Parts. Current count: {self._robot_parts}")
 
-    def eject_dropball(self):
-        if not self._machine_broken:
-            self._flippers.eject_drop_ball() 
-        self._drop_ball_pending = False
+    def monitor_game_start(self):
+        ''' Come here to monitor ball situation for starting game.'''
+        if self._game_active: return
+        okay_to_go = self._ballmanager.balls_ready_to_play() 
+        if okay_to_go == True: 
+            self._prevent_new_game = False
+            self._start_game_warning = False
+            return
+        telp = time.monotonic() - self._prevent_game_t0 
+        if telp > 4.0: 
+            # Okay, we have waited over 4 seconds for the old game balls to
+            # appear correctly in the trough.  Display warning.
+            self.show_warning(okay_to_go)
 
-    def manage_dropball(self):
-        if self._drop_ball_pending:
-            tnow = time.monotonic()
-            if tnow - self._drop_ball_t0 < 20: return 
-            self.eject_dropball()
-
-    def manage_balls(self):
-        ''' Come here to monitor ball situation on field.'''
-        if self._game_active:
-            pass
-        else:
-            okay_to_go = self._flippers.balls_ready_to_play() 
-            if okay_to_go == True: 
-                self._prevent_new_game = False
-                return
-            telp = time.monotonic() - self._prevent_game_t0 
-            if telp > 4.0: 
-                self.show_warning(okay_to_go)
-
-    def ball_drained(self):
+    def on_ball_drained(self):
         '''Come here when a ball has been detected in the drain hole.'''
         if not self._game_active: return 
         if self._ballmanager.balls_in_play() > 0:
-            if  self._ballmanager.drop_hole_full(): self.eject_dropball()
+            if self._ballmanager.drop_hole_full(): self._flippers.eject_drop_ball()
+            self._game_events.remove_name('Eject Drop Ball')
             return 
         self._nballs -= 1 
         if self._nballs <= 0: 
@@ -259,13 +270,14 @@ class PinballMachine():
             self._slights.on_new_ball()
             self._plights.on_new_ball()
 
-    def ball_dropped(self):
+    def on_ball_dropped(self):
+        ''' Come here to process when a ball has been detected in the drop hole.'''
         if not self._game_active:
             self._flippers.eject_drop_ball()
             return
         self.sound(sm.S_DING_DROPHOLE)
-        self._drop_ball_pending = True 
-        self._drop_ball_t0 = time.monotonic()
+        hold_time = config.get_game_param("drop_ball_hold", 15)
+        self.add_game_event({'name': 'Eject Drop Ball'}, hold_time)
         self.add_to_score(1000)
         self._flippers.new_ball()
         self._slights.on_drop_hole()
@@ -312,16 +324,6 @@ class PinballMachine():
             if e in ["B1", "B2", "B3"]:
                 self.add_to_score(50) 
                 self.sound(sm.S_DING_JET_BUMPERS)
-            #if e in ["F7"]:    -- These are now taken care of by the ball manager
-            #    self.ball_drained()
-            # if e in ["F8"]:
-            #     self.sound(sm.S_DING_TARGET)
-            #     self._drop_ball_pending = True 
-            #     self._drop_ball_t0 = time.monotonic()
-            #     self.add_to_score(1000)
-            #     self._flippers.new_ball()
-            #     self._slights.on_drop_hole()
-            #     self._plights.on_drop_hole()
                     
     def show_score(self, gp=None, g1=None, g2=None, g3=None):
         self._screen.score().main_score = self._score
@@ -343,13 +345,6 @@ class PinballMachine():
             self._screen.score().game_hint2 = "service."
             self._screen.score().game_hint3 = ""
         self._screen.update()
-
-    def make_reports(self):
-        tnow = time.monotonic()
-        if tnow - self._last_report_t0 < 10.0: return
-        self._highscore = highscore.get_highscore()  # Kluge -- change this to somesore of notification sys
-        self._last_report_t0 = tnow 
-        self._hw.report_to_log() 
 
     def run(self):
         self.reset_machine()
@@ -373,11 +368,9 @@ class PinballMachine():
                 self.advance_calendar()
                 self._ballmanager.update()
                 self.process_hardware_events()
-                self.manage_dropball()
-                self.manage_balls()
-            self.update_warning()
+                self.monitor_game_start()
+            self.process_game_events()
             self.show_score()
-            self.make_reports()
 
 if __name__ == "__main__":
     pb_log.log_init() 
@@ -385,10 +378,11 @@ if __name__ == "__main__":
     pb_log.disable_terminal()
     pb_log.disable_debug()
     log("")
-    log("Starting Game One.")
+    log("Starting Pinball Game ONE.")
     log("")
     if common.platform() == "real":
         log("Running on the actual pinball machine hardware.")
+        log(f"Active Nodes = {config.get_active_nodes()}")
     else:
         log("Running in simulation mode.")
     pbmachine = PinballMachine()

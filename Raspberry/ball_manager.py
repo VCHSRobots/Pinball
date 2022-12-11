@@ -13,72 +13,96 @@ class BallManager():
         self._game = game 
         self._hw = hw 
         self._flippers = flippers
+        # Trough Bit Status
+        self._current_bits = 0b0000111
+        self._last_bits    = 0b0000111
+        self._bit_change_pending = False 
+        self._bit_change_pending_t0 = time.monotonic() 
+        self._bit_stable = True
         # Trough Status
-        self._current_bits = 0b00000111  
-        self._last_bits = 0 
-        self._last_bits_change_t0 = time.monotonic()
-        self._bit_change_pending = False
+        self._balls_in_trough = 3
+        self._trough_change_pending = False
+        self._trough_invalid = False
         # Drop Hole Status
         self._current_drop = False 
         self._last_drop = False 
         self._last_drop_change_t0 = time.monotonic() 
         self._drop_change_pending = False 
 
-    def monitor_ball_trough(self):
-        ''' Monitors the ball trough.  Adds events to the main queue.'''
-        bits = self._flippers.get_ball_bits() 
-        if not self._bit_change_pending: 
-            if bits == self._current_bits: return
-            self._bit_change_pending = True 
-            self._last_bits = bits
-            self._last_bits_change_t0 = time.monotonic()
+    def monitor_ball_trough_bits(self):
+        ''' Monitors the bits in the ball trough.  If the
+        bits haven't changed in a while, declare them stable.'''
+        bits = self._flippers.get_ball_bits()
+        if bits == self._last_bits:
+            if not self._bit_change_pending: 
+                self._bits_stable = True 
+                return 
+            telp = time.monotonic() - self._bit_change_pending_t0 
+            if telp > 0.5: 
+                log("New bits stable.")
+                self._bit_change_pending = False 
+                self._bits_stable = True 
             return
-        if bits != self._last_bits:
-            self._last_bits = bits
-            self._last_bits_change_t0 = time.monotonic()
-            return
-        if time.monotonic() - self._last_bits_change_t0 < 1.5: return
-        # Trough bits have been stable 
-        self._bit_change_pending = False
-        bold = self._current_bits 
-        bnew = self._last_bits
-        self._current_bits = self._last_bits 
-        if bold == bnew:
-            # The change didn't actually take place 
-            return 
-        # Something changed.  What was it?
-        if bold == 0b00000111:   # All balls were in trough 
-            if bnew == 0b00000011:  
-                self._game.add_game_event("Ball Released")
-            elif bnew == 0b00000001:
-                self._game.add_game_event("Ball Released")
-                self._game.add_game_event("Ball Released")
-            else:
-                self._game.add_game_event("Balls Jammed")
-            return
-        if bold == 0b00000011:  # Two balls were in trough
-            if bnew == 0b00000001:
-                self._game.add_game_event("Ball Released")
-            elif bnew == 0b00000111:
-                self._game.add_game_event("Ball Drained")
-            else:
-                self._game.add_game_event("Balls Jammed")
-        if bold == 0b00000001: # One ball was in trough
-            if bnew == 0b00000011:
-                self._game.add_game_event("Ball Drained")
-            elif bnew == 0b00000111:
-                self._game.add_game_event("Ball Drained")
-                self._game.add_game_event("Ball Drained")
-            else:
-                self._game.add_event("Ball Jammed")
-        else:  # Trough Was Jammed
-            if bnew == 0b00000111 or bnew == 0b00000011 or bnew == 0b00000001:
-                self._game.add_game_event("Jam Cleared")
+        log("Bit change detected.")
+        self._last_bits = bits
+        self._bit_change_pending = True
+        self._bit_change_pending_t0 = time.monotonic()
+        self._bits_stable = False
 
-        self._current_drop = False 
-        self._last_drop = False 
-        self._last_drop_change_t0 = time.monotonic() 
-        self._drop_change_pending = False
+    def count_balls_in_trough(self):
+        ''' Returns a raw count of the number of balls in the
+        trough -- no matter what their position. '''
+        n = 0
+        for i in range(4):
+            if (1 << i) & self._current_bits != 0: n += 1 
+        return n
+
+    def trough_is_valid(self, bits):
+        ''' Returns true if we thing the trough is in a 
+        stable (non-jammed) condition '''
+        if bits == 0b00000001: return True
+        if bits == 0b00000011: return True
+        if bits == 0b00000111: return True
+        return False
+
+    def monitor_ball_trough(self):
+        ''' Monitors the ball trought.  Waits for valid configurations.'''
+        self.monitor_ball_trough_bits() 
+        if not self._bits_stable:
+            if self._trough_change_pending:
+                # decide if we are in a jammed condition
+                pass
+            self._trough_change_pending = True
+            log("Trough Change Pending")
+            return
+        if not self._trough_change_pending: return
+        self._trough_change_pending = False
+        self._current_bits = self._last_bits 
+        if not self.trough_is_valid(self._current_bits):
+            # The bits are stable, but not in a valid config.  
+            if self._trough_invalid:
+                # it was invalid before.  Don't do anything
+                return
+            self._trough_invalid = True
+            self._game.add_game_event("Balls Jammed")
+            return
+        if self._trough_invalid:
+            self._game.add_game_event("Balls Unjammed")
+        self._trough_invalid = False
+        new_ball_count = self.count_balls_in_trough()
+        log(f"New ball count: {new_ball_count}   Old count: {self._balls_in_trough}")
+        if new_ball_count > self._balls_in_trough:
+            n = new_ball_count - self._balls_in_trough
+            for i in range(n):
+                self._game.add_game_event("Ball Drained")
+            self._balls_in_trough = new_ball_count 
+            return
+        if new_ball_count < self._balls_in_trough:
+            n = self._balls_in_trough - new_ball_count 
+            for i in range(n):
+                self._game.add_game_event("Ball Released")
+            self._balls_in_trough = new_ball_count 
+            return
 
     def monitor_drop_hole(self):
         ''' Monitors the drop hole. Adds events to the main queue.'''
@@ -116,24 +140,22 @@ class BallManager():
         A ball is considered "in play" if it is not in the
         trough. -1 is returned when we think there is something wrong.
         This assumes the game starts with 3 balls.'''
-        n = -1
-        if self._current_bits == 0b00000000: n = 3 # 3  # Invalid Condition
-        if self._current_bits == 0b00000001: n = 2 
-        if self._current_bits == 0b00000010: n = 2  # Invalid Condition
-        if self._current_bits == 0b00000100: n = 2  # Invalid Condition
-        if self._current_bits == 0b00001000: n = 2  # Invalid Condition
-        if self._current_bits == 0b00000011: n = 1 
-        if self._current_bits == 0b00000110: n = 1  # Invalid Condition
-        if self._current_bits == 0b00000101: n = 1  # Invalid Condition
-        if self._current_bits == 0b00001001: n = 1  # Invalid Condition 
-        if self._current_bits == 0b00001010: n = 1  # Invalid Condition
-        if self._current_bits == 0b00001100: n = 1  # Invalid Condition
-        if self._current_bits == 0b00000111: n = 0  
-        if self._current_bits == 0b00001011: n = 0  # Invalid Condition
-        if self._current_bits == 0b00001101: n = 0  # Invalid Condition
-        if self._current_bits == 0b00001110: n = 0  # Invalid Condition
-        if self._current_bits == 0b00001111: n = 0  # Invalid Condition
-        return n
+        n = 3 - self._balls_in_trough 
+        if n < 0: n = 0
+        if n > 3: n = 3
+        return n 
+
+    def balls_ready_to_play(self):
+        ''' Returns True if 3 balls in proper position for game start. Otherwise
+        returns an error message indicating the problem. '''
+        if self._current_bits == 0b00000111: return True
+        if self._current_bits == 0b00001111: return "Too many balls!  Must be 3."
+        if not self.trough_is_valid(self._current_bits):
+            return f"Balls out of position. ({self._current_bits:>04b})"
+        nballs = self.balls_in_trough()
+        if nballs < 3: return f"Only {nballs} found. Need 3."
+        elif nballs == 3: return True
+        else: return f"Unknown Err. NBalls={nballs}"
 
     def update(self):
         self.monitor_ball_trough() 

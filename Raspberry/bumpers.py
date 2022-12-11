@@ -94,16 +94,16 @@ class Bumpers():
     def disable(self):
         cmd = [CMD_COILS_ENABLE, MASK_ALL_BUMPERS, 0]
         self._hw.send_command(self._nodeadr, cmd)
-        log("Sending Command from Bumpers: Disabling All Bumper Coils")
+        log("Sending Command from Bumpers: Disabling all Bumper Coils")
         cmd = [CMD_LAMP_ENABLE, MASK_ALL_BUMPERS, 0]
         self._hw.send_command(self._nodeadr, cmd)
-        log("Sending Command from Bumpers: Disabling All Bumper Lamps")
+        log("Sending Command from Bumpers: Disabling all Bumper Lamps")
 
     def enable(self):
         cmd = [CMD_COILS_ENABLE, MASK_ALL_BUMPERS, 1]
         self._hw.send_command(self._nodeadr, cmd)
-        log("Sending Command from Bumpers: Enabling All Bumper Coils")
+        log("Sending Command from Bumpers: Enabling all Bumper Coils")
         cmd = [CMD_LAMP_ENABLE, MASK_ALL_BUMPERS, 1]
         self._hw.send_command(self._nodeadr, cmd)
-        log("Sending Command from Bumpers: Enabling All Bumper Lamps")
+        log("Sending Command from Bumpers: Enabling all Bumper Lamps")
        

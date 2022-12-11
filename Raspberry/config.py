@@ -29,7 +29,7 @@ config = {
     "drop_hole_coil": {
         "name": "drop hole",
         "pwm": 100,
-        "timer_on": 100
+        "time_on": 100
     },
     "lift_motor": {
         "name": "lift motor",
@@ -152,6 +152,12 @@ config = {
     }
 }
 
+game_params = {
+    "drop_ball_hold": 15,   # Seconds to wait before introducing dropped ball into play
+    "report_period": 30,      # Seconds to wait before reporting status to log
+    "check_highscore_period": 20 # Seconds between checking for highscore reset
+}
+
 def init_config():
     ''' Attemps to read the config file.'''
     pass
@@ -169,3 +175,11 @@ def get_param(module, name, default):
         log(f"Param {name} in module {module} not known in config.")
         return default
     return config[module][name]
+
+def get_game_param(name, default=0):
+    ''' Returns game play parameters, given the game of the parameter.'''
+    if name not in game_params:  
+        log(f"Game param {name} not known in config.")
+        return default
+    return game_params[name]
+

@@ -36,11 +36,11 @@ class ScoreBoxLights():
         for ev in events:
             if ev['cmd'] == "game_mode":
                 name = ev["cmd_name"]
-                log("Executing queued command in ScoreBox Lights: {name}") 
+                log(f"Executing queued command in ScoreBox Lights: {name}") 
                 self.on_game_mode()
             if ev['cmd'] == "wait_mode":
                 name = ev["cmd_name"]
-                log("Executing queued command in ScoreBox Lights: {name}") 
+                log(f"Executing queued command in ScoreBox Lights: {name}") 
                 self.on_wait_mode()
 
     def on_game_mode(self):
