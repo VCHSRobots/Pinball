@@ -22,7 +22,9 @@ import ball_manager
 import event_manager
 import config
 import game_logic
+
 import logic_lanes 
+import logic_targets
 
 secs_per_day = 2.0  # Controls the speed of the build timer
 
@@ -43,6 +45,7 @@ class PinballMachine():
         self._targets = targets.Targets(self, self._hw, self._sound)
         self._ballmanager = ball_manager.BallManager(self, self._hw, self._flippers)
         self._lane_logic = logic_lanes.LogicLanes(self, self._hw, self._sound, self._plights)
+        self._target_logic = logic_targets.LogicTargets(self, self._hw, self._sound, self._plights)
         self._game_events = event_manager.EventManager()
         self._highscore = highscore.get_highscore()
         self._nballs = 0   # Number of balls remaining in game, including ball in play.
@@ -210,6 +213,7 @@ class PinballMachine():
         self._kickers.enable()
         self._plights.on_new_game()
         self._lane_logic.on_new_game()
+        self._target_logic.on_new_game()
         self._game_active = True
         self._sound.play(sm.S_MATCH_START)
         self._last_day_change_time = time.monotonic()
@@ -302,6 +306,7 @@ class PinballMachine():
         for e in events:
             log(f"Event: {e}")
             self._lane_logic.process_hw_event(e)
+            self._target_logic.process_hw_event(e)
             if e == "F1": # Right Flipper Button
                 self.add_to_score(1) 
             if e == "F2": # Left Flipper Button
@@ -310,27 +315,27 @@ class PinballMachine():
                 if self._game_active: 
                     # Shortcut to spinning the lift motor some more.
                     self._flippers.lift_motor_cycle(1.5)
+                    log("Start button pressed on Game Active. Spining lift motor.")
                     continue
                 if self._prevent_new_game: 
                     log("Rejecting new game request.")
                     continue 
                 self.start_new_game()
                 return 
-            if e in ["T1", "T2", "T3", "T4", "T5", "T6", "T7"]: 
-                self.add_to_robot_parts()
-                self.add_to_score(100) 
-                self.sound(sm.S_DING_TARGET)
             if e in ["L5"]:
-                self.add_to_score(150) 
                 self._flippers.enable_thrid_flipper()
-            if e in ["L8", "L9"]:
-                self.add_to_score(25) 
             if e in ["K1", "K2", "K3"]:
-                self.add_to_score(25) 
-                self.sound(sm.S_DING_KICKER)
+                if self._game_active:
+                    points = config.get_points("kicker_hit", 25)
+                    self.add_to_score(points) 
+                    self.sound(sm.S_DING_KICKER)
+                    log(f"Kicker Hit. ({e}. Awarded {points} points.")
             if e in ["B1", "B2", "B3"]:
-                self.add_to_score(50) 
-                self.sound(sm.S_DING_JET_BUMPERS)
+                if self._game_active:
+                    points = config.get_points("bumper_hit", 50)
+                    self.add_to_score(points) 
+                    self.sound(sm.S_DING_JET_BUMPERS)
+                    log(f"Bumper Hit. ({e}. Awarded {points} points.")
                     
     def show_score(self, gp=None, g1=None, g2=None, g3=None):
         self._screen.score().main_score = self._score

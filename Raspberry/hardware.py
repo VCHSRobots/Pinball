@@ -149,8 +149,11 @@ class Node():
             if len(self._cmd_queue) > 0: id, dat = self._cmd_queue.pop()
             temp_events = self._attempt_comm(dat)
             if temp_events is None: 
-                if dat is not None: self._cmd_queue.append((id, dat))
-                return events 
+                # Try again, one time
+                temp_events = self._attempt_comm(dat)
+                if temp_events is None:
+                    if dat is not None: self._cmd_queue.append((id, dat))
+                    return events 
             if id != -1:
                 completed_cmds.append(id)
             events.extend(temp_events)

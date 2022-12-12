@@ -155,7 +155,24 @@ config = {
 game_params = {
     "drop_ball_hold": 15,   # Seconds to wait before introducing dropped ball into play
     "report_period": 30,      # Seconds to wait before reporting status to log
-    "check_highscore_period": 20 # Seconds between checking for highscore reset
+    "check_highscore_period": 20  # Seconds between checking for highscore reset
+}
+
+game_points = {
+    "epic_targets" : [250, 300, 350, 500],
+    "epic_target_inorder_points" : 5000,
+    "kicker_hit": 25,
+    "bumper_hit": 50,
+    "top_lane": 100,
+    "top_lane_with_hot_light": 400,
+    "side_lane": 500,
+    "easy_lane":  50,
+    "drain_lanes": 25,
+    "flipper_lanes": 50,
+    "target_x": 750,
+    "target_panic": 500,
+    "drop_hole": 1000,
+    "drop_hole_lane": 500
 }
 
 def init_config():
@@ -182,4 +199,11 @@ def get_game_param(name, default=0):
         log(f"Game param {name} not known in config.")
         return default
     return game_params[name]
+
+def get_points(name, default=0):
+    ''' Returns points awarded for given accomplisment, given the name of the game element.'''
+    if name not in game_points:  
+        log(f"Game point element {name} not known in config.")
+        return default
+    return game_points[name]
 

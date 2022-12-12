@@ -8,6 +8,7 @@ import common
 from pb_log import log
 import time
 
+
 if common.platform() == "real":
     sound_path = "/home/pi/pb/sounds/"
 else:
@@ -51,6 +52,8 @@ S_COMPETITION = 35
 S_PLAYOFFS = 36
 S_BALL_LOST = 37
 S_LANE_AWARD = 38
+S_WIN_TRUMPET_1 = 39
+S_WIN_TRUMPET_2 = 40
 
 builds = [S_BUILD_0, S_BUILD_1, S_BUILD_2, S_BUILD_3, S_BUILD_4, S_BUILD_5]
 fouls = [S_FOUL_1, S_FOUL_2, S_FOUL_3, S_FOUL_4]
@@ -94,7 +97,9 @@ sounds = [
         (S_COMPETITION, "Welcome_to_Competition.wav"),
         (S_PLAYOFFS, "You_Made_It_To_Playoffs.wav"),
         (S_BALL_LOST, "Beep.wav"),
-        (S_LANE_AWARD, "Chime_1.wav")]
+        (S_LANE_AWARD, "Chime_1.wav"),
+        (S_WIN_TRUMPET_1, "WinTrumpet_1.wav"),
+        (S_WIN_TRUMPET_2, "WinTrumpet_2.wav")]
 
 def get_all_sounds():
     '''Returns a list of ids for all sounds in the system.'''
