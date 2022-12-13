@@ -1,0 +1,85 @@
+#! /usr/bin/python
+# pled -- sets Leds on the playfield
+#
+# Pinball Machine Project, EPIC Robotz, Fall 2022
+# Epic Robotz, Fall 2020
+# dlb
+
+import time
+import sys
+import pb_log
+pb_log.disable()
+import time
+import common 
+if common.platform() == "real":
+    import comm_bus
+    comm = comm_bus.CommBus()
+else:
+    comm = None
+
+CMD_NEO_RESET     =   1
+CMD_NEO_SINGLE    =   2
+CMD_NEO_SOLID     =   3
+CMD_NEO_WIPE      =   4
+CMD_NEO_CHASE     =   5
+CMD_NEO_BLINK     =   6
+CMD_NEO_DEMO      =   7
+CMD_LAMP_SOLID    =   8
+CMD_LAMP_FLASH    =   9
+CMD_LAMP_MODULATE =  10
+
+def submit(cmd):
+    rsp = comm.node_io(3, cmd)
+    if rsp is None:
+        print("No response from light node.")
+    return
+
+def run(args):
+    if len(args) < 2:
+      print("Program to issue a pixel cmd to light node.")
+      print("Usage: pled cmd r, g, g")
+      print("were r, g, b are optional, and cmd can be:")
+      print("  clear ")
+      print("  solid ")
+      print("  blink")
+      print("  N -- a pixel index")
+      print()
+      return
+    if comm == None:
+        print("Sorry, this program must be run on the real pinball machine.")
+        return
+    comm.begin()
+    c = args[1] 
+    r,g,b = 255, 0, 0
+    try:
+      if len(args) > 2: r = int(args[2])
+      if len(args) > 3: g = int(args[3])
+      if len(args) > 4: b = int(args[4])
+    except Exception: 
+      print("Syntax error for r, g, b arguments.")
+      return 
+    if r > 255 or g > 255 or b > 255 or r < 0 or g < 0 or b < 0:
+      print("r, g, b out of range.")
+      return
+    if c == "clear":
+      submit([CMD_NEO_RESET, r, g, b])
+      return 
+    if c == "solid":
+      submit([CMD_NEO_SOLID, r, g, b])
+      return 
+    if c == "blink":
+      submit([CMD_NEO_BLINK, r, g, b, 0, 0, 0, 1, 1, 4])
+      return 
+    try:
+      ipx = int(c)
+    except Exception: 
+      print("Unknown command.")
+      return 
+    if ipx < 0 or ipx > 100:
+      print("Pixel index out of range.")
+      return
+    submit([CMD_NEO_SINGLE, r, g, b, r, g, b, ipx, 100, 100])
+    return 
+
+if __name__ == "__main__":
+    run(sys.argv)

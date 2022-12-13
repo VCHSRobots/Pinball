@@ -7,7 +7,7 @@
 from pb_log import log
 
 config = {
-    "active_nodes": [3, 4],
+    "active_nodes": [2, 3, 4, 5, 6, 7, 8],
     "flipper_right": {
         "name": "right flipper",
         "pwm1": 255,

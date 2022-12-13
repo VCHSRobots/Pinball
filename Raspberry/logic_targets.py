@@ -50,6 +50,7 @@ class LogicTargets():
                 
     def process_epic_hit(self, itarg):
         point_table = config.get_points("epic_targets", [250, 300, 350, 500])
+        self._app.add_to_robot_parts()
         self._epic_targets_hits[itarg] += 1 
         points = self._epic_targets_hits[itarg] * point_table[itarg]
         self._app.add_to_score(points)

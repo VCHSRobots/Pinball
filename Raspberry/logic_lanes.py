@@ -86,10 +86,10 @@ class LogicLanes():
             self.process_top_lane(1) 
         if ev == "L2": # Upper Lane right
             self.process_top_lane(2)
-        if ev in ["L8", "L9"]: # Flipper Lanes
+        if ev in ["L7", "L10"]: # Flipper Lanes
             points = config.get_points("flipper_lanes", 50)
             self._sound.play(sm.S_DING_LANE)
-        if ev in ["L7", "L10"]:  # Drain Lanes
+        if ev in ["L8", "L9"]:  # Drain Lanes
             isc  = random.choice([sm.S_FOUL_1, sm.S_FOUL_2, sm.S_FOUL_3, sm.S_FOUL_4, sm.S_REDCARD])
             self._sound.play(isc)
             points = config.get_points("drain_lanes", 25)
