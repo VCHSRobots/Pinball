@@ -88,11 +88,12 @@ class Node():
     def _attempt_comm(self, dat):
         events = []
         if not self._node_addr in config.get_active_nodes(): return events
+        if dat is None and self._node_addr in [2, 3]: return events
         rsp = comm.node_io(self._node_addr, dat) 
         self._last_comm_attemp_time = time.monotonic()
         if rsp == None: 
             telp = time.monotonic() - self._last_comm_success_time
-            if telp > 5.00:
+            if telp > 5.00 and not self._node_addr in [2, 3]:
                 if self._active: log(f"Node {self._name} going inactive.")
                 self._active = False
             return None
@@ -173,7 +174,6 @@ class Hardware():
         self._key_digits = (pyg.K_1, pyg.K_2, pyg.K_3, pyg.K_4, pyg.K_5, pyg.K_6, pyg.K_7, pyg.K_8, pyg.K_9)
         self._major_keys = (pyg.K_t, pyg.K_l, pyg.K_f, pyg.K_b, pyg.K_k)
         self._major_key_map = {pyg.K_t: "T", pyg.K_l: "L", pyg.K_f: "F", pyg.K_b: "B", pyg.K_k: "K" }
-        self._sim_balls_in_trough = 0
         self._startup_cmds = []
 
     def send_command(self, addr, dat):
@@ -275,10 +275,6 @@ class Hardware():
         '''Returns a bitmap of the switches for a given node'''
         if node_addr in self._nodes:
             bits = self._nodes[node_addr].get_switch_state()
-            if self._sim_balls_in_trough > 0 and node_addr == NODE_FLIPPERS:
-                # add simulate bits.
-                mask = [0b01000000, 0b01100000, 0b01110000, 0b01111000]
-                bits = bits | mask[self._sim_balls_in_trough - 1] 
             return bits 
         else: return 0
 
@@ -293,14 +289,6 @@ class Hardware():
                 if k == key: 
                     self._simulated_events.append(self._major_key_map[self._last_key] + f"{i+1:1}")
                     return 
-        if key == pyg.K_q: # simulate a ball dropping into hopper
-            if self._sim_balls_in_trough <= 3:
-                self._simulated_events.append("F7")
-                self._sim_balls_in_trough += 1 
-            return 
-        if key == pyg.K_z: # turn off ball trough simulation  
-            self._sim_balls_in_trough = 0
-
         
 if __name__ == "__main__":
     pb_log.disable_debug()

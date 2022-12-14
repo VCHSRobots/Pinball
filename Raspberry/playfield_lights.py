@@ -40,7 +40,16 @@ PI_TARG_C       = ("target_C", 17)
 PI_COL_RT       = ("column_right", (18, 19, 20, 21))
 PI_COL_MID      = ("column_middle", (25, 24, 23, 22))
 PI_COL_LEFT     = ("column_left", (26, 27, 28, 29))
+PI_ROW_0        = ("row_0", (29, 22, 21)) 
+PI_ROW_1        = ("row_1", (28, 23, 20)) 
+PI_ROW_2        = ("row_2", (27, 24, 19)) 
+PI_ROW_3        = ("row_3", (26, 25, 18)) 
 PI_FAKE         = ("fake", 31)
+
+BONUS_LEDS = [("b1", 29), ("b2", 22), ("b3", 21),
+              ("b4", 28), ("b5", 23), ("b6", 20),
+              ("b7", 27), ("b8", 24), ("b9", 19),
+              ("b10", 26), ("b11", 25), ("b12", 18) ]
 
 # Lamp constants
 LAMP_PANIC      = ("panic_lamp", 0b0001)
@@ -124,6 +133,12 @@ class PlayfieldLights():
                 cmd = ev['cmd']
                 self.issue_cmd(*cmd)
 
+    def set_single_mode(self):
+        ''' Returns the playfield lights to their single mode status without
+        disturbing thier settings.'''
+        name, ipx = PI_FAKE 
+        self.issue_cmd(CMD_NEO_SINGLE, 0, 0, 0,  0, 0, 0,  ipx, 2, 2)
+
     def set_pixel_blink(self, px, c1, c2, w1, w2, delay=0):
         ''' Sets an individule pixel or pixel group to blink between two colors
         and wait times.  Colors are 3-tuples. Wait times are in units of 25msec.
@@ -132,9 +147,13 @@ class PlayfieldLights():
         r1, g1, b1 = c1 
         r2, g2, b2 = c2
         if type(ipx) is list: ipx_list = ipx 
-        else:                 ipx_list = [ipx]
-        for ipx in ipx_list:
-            cmd = [CMD_NEO_SINGLE, r1, g1, b1, r2, g2, b2, ipx, w1, w2]
+        elif type(ipx) is tuple: ipx_list = ipx
+        elif type(ipx) is int: ipx_list = [ipx]
+        else: 
+            log(f"Error on set_pixel_blink. Input pixel type is {type(ipx)}, value = {ipx}")
+            return
+        for ip in ipx_list:
+            cmd = [CMD_NEO_SINGLE, r1, g1, b1, r2, g2, b2, ip, w1, w2]
             if delay == 0:
                 self.issue_cmd(*cmd)
             else:
@@ -162,7 +181,7 @@ class PlayfieldLights():
         the lamp will return to it's previous mode.  If delay is
         given, the command is queued for later.'''
         name, mask = lamp
-        cmd = [CMD_LAMP_SOLID, mask, brightness, time_on]
+        cmd = [CMD_LAMP_FLASH, mask, brightness, time_on]
         if delay == 0: self.issue_cmd(*cmd)
         else:
             ev = {'name': "cmd", "cmd": cmd, 'category': 'lamp'}
@@ -173,21 +192,24 @@ class PlayfieldLights():
         is the period in 25 msec units, to go between the two brightnesses.
         if delay is given, the command is queued for later.'''
         name, mask = lamp
-        cmd = [CMD_LAMP_SOLID, mask, b1, b2, steps]
+        cmd = [CMD_LAMP_MODULATE, mask, b1, b2, steps]
         if delay == 0: self.issue_cmd(*cmd)
         else:
             ev = {'name': "cmd", "cmd": cmd, 'category': 'lamp'}
             self._queue.add_event(ev, delay)
 
-    def on_new_game(self):
-        ''' Indicate the start of a new geam. '''
-        self._queue.remove_category('neo')
-        self.issue_cmd(CMD_NEO_RESET, 0, 0, 0)
-        self.issue_cmd(CMD_NEO_BLINK, 200, 200, 200,  255, 0, 0,   1, 1, 3)  # White/red blink 75ms
-        ev ={'name': "set_single_mode", 'category': 'neo'}
-        self._queue.add_event(ev, 3.5)
-        self.set_lamp_modulate(LAMP_LANES, 0, 255, 50)
-        self.set_lamp_modulate(LAMP_PANIC, 0, 25, 40)
+    def set_all_blink(self, c1, c2, w = 3):
+        ''' Sets all pixels in blinking mode.'''
+        r1, g1, b1 = c1 
+        r2, g2, b2 = c2
+        self.issue_cmd(CMD_NEO_BLINK, r1, g1, b1, r2, g2, b2, 1, 1, 3)
+
+    def set_all_chase(self, c1, c2, n=1, w=3):
+        ''' Sets all pixels in chase mode, where n is window size, and w
+         is period in 25 msec units.'''
+        r1, g1, b1 = c1 
+        r2, g2, b2 = c2
+        self.issue_cmd(CMD_NEO_CHASE, r1, g1, b1, r2, g2, b2, n, w)
 
     def on_ball_drain(self):
         ''' Indicate the end of a turn due to ball draining. '''
@@ -202,24 +224,12 @@ class PlayfieldLights():
         self.issue_cmd(CMD_NEO_BLINK, 255, 0, 0,  0, 0, 255,   1, 1, 3)  # Blink, red/blue blink 75 ms
         ev ={'name': "set_single_mode", 'category': 'neo'}
         self._queue.add_event(ev, 3.5)
-        self.set_lamp_flash(LAMP_PANIC, 200, 10)
 
     def on_drop_hole(self):
         self._queue.remove_category('neo')
         self.issue_cmd(CMD_NEO_SOLID, 0, 0, 255)  # Solid bright blue 
         ev ={'name': "set_single_mode", 'category': 'neo'}
         self._queue.add_event(ev, 2.0)
-
-    def on_panic(self):
-        ''' Indicates a panic situation.'''
-        self._queue.remove_category('neo')
-        self.issue_cmd(CMD_NEO_CHASE, 255, 0, 0, 0, 255, 0, 2, 2) # Chase, red/green, 2 pixel window, 50ms
-        ev ={'name': "set_single_mode", 'category': 'neo'}
-        self._queue.add_event(ev, 3.5)
-        self.set_lamp_solid(LAMP_PANIC, 255)
-
-    def on_no_panic(self):
-        self.set_lamp_modulate(LAMP_PANIC, 0, 25, 40)
 
     def on_game_over(self):
         ''' Indicate game over. '''

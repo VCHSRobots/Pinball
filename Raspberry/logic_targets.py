@@ -6,6 +6,7 @@ from pb_log import log
 import playfield_lights as pl 
 import sound_manager as sm
 import config
+import neo_colors as cc
 
 EPIC_TARGETS_POINTS = [250, 300, 350, 500]
 
@@ -18,9 +19,7 @@ class LogicTargets():
         self._epic_targets_hits = [0, 0, 0, 0]    # Target counds
         self._epic_order_next = 0            # Next Target to hit in order
         self._epic_order_achieved = False    # If the target order has been achived. 
-        self._panic_hits = 0
         self._xtarg_hits = 0
-
         self._epic_lights = [pl.PI_TARG_E, pl.PI_TARG_P, pl.PI_TARG_I, pl.PI_TARG_C]
 
     def set_epic_target_lights(self):
@@ -28,12 +27,12 @@ class LogicTargets():
             light = self._epic_lights[i]
             hits = self._epic_targets_hits[i]
             c = (0, 0, 0)
-            if hits <= 0: c = (5, 5, 5)      # Barely on 
-            if hits == 1: c = (100, 100, 0)  # dull yellow
-            if hits == 2: c = (255, 0, 0)    # Bright red
-            if hits  > 2: c = (0, 0, 255)    # Bright blue 
+            if hits <= 0: c = cc.FAINT_WHITE 
+            if hits == 1: c = cc.DULL_YELLOW
+            if hits == 2: c = cc.RED
+            if hits  > 2: c = cc.BLUE 
             if self._epic_order_next == i: 
-                self._lights.set_pixel_blink(light, c, (0, 255, 0), 3, 2)  
+                self._lights.set_pixel_blink(light, c, cc.GREEN, 3, 2)  
             else:
                 self._lights.set_pixel(light, c)
 
@@ -42,11 +41,10 @@ class LogicTargets():
         self._epic_order_next = 0 
         self._epic_order_achieved = False
         self.set_epic_target_lights() 
-        self._panic_hits = 0
         self._xtarg_hits = 0
-        self._lights.set_pixel(pl.PI_TARG_PANIC_1, (5,5,5))
-        self._lights.set_pixel(pl.PI_TARG_PANIC_2, (5,5,5))
-        self._lights.set_pixel(pl.PI_TARG_X, (5,5,5))
+        self._lights.set_pixel(pl.PI_TARG_PANIC_1, cc.FAINT_WHITE)
+        self._lights.set_pixel(pl.PI_TARG_PANIC_2, cc.FAINT_WHITE)
+        self._lights.set_pixel(pl.PI_TARG_X, cc.FAINT_WHITE)
                 
     def process_epic_hit(self, itarg):
         point_table = config.get_points("epic_targets", [250, 300, 350, 500])
@@ -83,18 +81,9 @@ class LogicTargets():
             self.process_epic_hit(2)
         if ev == "T4":  # Target C 
             self.process_epic_hit(3)
-        if ev == "T5":  # Panic Target
-            self._panic_hits += 1
-            if self._panic_hits == 1: self._lights.set_pixel(pl.PI_TARG_PANIC_1, (255, 0, 0))
-            if self._panic_hits > 1: self._lights.set_pixel(pl.PI_TARG_PANIC_2, (255, 0, 0))
-            base_points = config.get_points("target_panic", 500)
-            points = base_points * self._panic_hits
-            self._app.add_to_score(points) 
-            log(f"Panic target hit. {points} awarded.")
-            self._sound.play(sm.S_DING_TARGET)
         if ev == "T6":  # X Target
             self._xtarg_hits += 1
-            self._lights.set_pixel(pl.PI_TARG_X, (255, 0, 0))
+            self._lights.set_pixel(pl.PI_TARG_X, cc.RED)
             base_points = config.get_points("target_x", 750)
             points = base_points * self._xtarg_hits
             self._app.add_to_score(points) 

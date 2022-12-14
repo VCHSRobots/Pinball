@@ -54,10 +54,26 @@ S_BALL_LOST = 37
 S_LANE_AWARD = 38
 S_WIN_TRUMPET_1 = 39
 S_WIN_TRUMPET_2 = 40
+S_BONUS_01 = 41
+S_BONUS_02 = 42
+S_BONUS_03 = 43
+S_BONUS_04 = 44
+S_BONUS_05 = 45
+S_BONUS_06 = 46
+S_BONUS_07 = 47
+S_BONUS_08 = 48
+S_BONUS_09 = 49
+S_BONUS_10 = 50
+S_BONUS_11 = 51
+S_BONUS_12 = 52
+
+
 
 builds = [S_BUILD_0, S_BUILD_1, S_BUILD_2, S_BUILD_3, S_BUILD_4, S_BUILD_5]
 fouls = [S_FOUL_1, S_FOUL_2, S_FOUL_3, S_FOUL_4]
 panics = [S_PANIC_0, S_PANIC_1, S_PANIC_2, S_PANIC_3, S_PANIC_4, S_PANIC_5]
+bonus  = [S_BONUS_01, S_BONUS_02, S_BONUS_03, S_BONUS_04, S_BONUS_05, S_BONUS_06, S_BONUS_07,
+            S_BONUS_08, S_BONUS_09, S_BONUS_10, S_BONUS_11, S_BONUS_12]
 
 sounds = [
         (S_DING_KICKER, "Ding_1.wav"),
@@ -99,7 +115,19 @@ sounds = [
         (S_BALL_LOST, "Beep.wav"),
         (S_LANE_AWARD, "Chime_1.wav"),
         (S_WIN_TRUMPET_1, "WinTrumpet_1.wav"),
-        (S_WIN_TRUMPET_2, "WinTrumpet_2.wav")]
+        (S_WIN_TRUMPET_2, "WinTrumpet_2.wav"),
+        (S_BONUS_01, "Bonus_01.wav"),
+        (S_BONUS_02, "Bonus_02.wav"),
+        (S_BONUS_03, "Bonus_03.wav"),
+        (S_BONUS_04, "Bonus_04.wav"),
+        (S_BONUS_05, "Bonus_05.wav"),
+        (S_BONUS_06, "Bonus_06.wav"),
+        (S_BONUS_07, "Bonus_07.wav"),
+        (S_BONUS_08, "Bonus_08.wav"),
+        (S_BONUS_09, "Bonus_09.wav"),
+        (S_BONUS_10, "Bonus_10.wav"),
+        (S_BONUS_11, "Bonus_11.wav"),
+        (S_BONUS_12, "Bonus_12.wav") ]
 
 def get_all_sounds():
     '''Returns a list of ids for all sounds in the system.'''
@@ -140,6 +168,12 @@ class SoundManager():
                 log(f"Playing Sound id ({id}): {n}") 
         else:
             log(f"Warning: Attempt to play non-existing sound.  id={id}.")
+
+    def play_bonus(self, indx):
+        if indx < 1: return
+        indx -= 1
+        if indx > 11: indx = 11 
+        self.play(bonus[indx])
     
 if __name__ == "__main__" :
     pyg.init() 

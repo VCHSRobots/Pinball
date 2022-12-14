@@ -274,10 +274,12 @@ bool process_command() {
                 // Arguments:
                 // cmd, c1-r, c1-g, c1-b, c2-r, c2-g, c2-b, indx, c1-steps, c2-steps
                 //   0,    1,    2,    3,    4,    5,    6,    7,        8,        9
+                digitalWrite(PIN_DB3, HIGH);
                 neo_mode = NEO_SINGLE;
                 int indx = cmd_bytes[7]; 
                 if (indx < 0 || indx >= NPIXELS) {
                     // err_count++;  No longer an error. Indicates desire to return to single's mode.
+                    digitalWrite(PIN_DB3, LOW);
                     return true;
                 }
                 neo_c1[indx] = convert_to_rgb(cmd_bytes + 1);
@@ -285,6 +287,7 @@ bool process_command() {
                 neo_c1steps[indx] = cmd_bytes[8] & 0x007F;
                 neo_c2steps[indx] = cmd_bytes[9] & 0x007F;
                 neo_istep[indx] = 0;
+                digitalWrite(PIN_DB3, LOW);
             }
             return true;
         case CMD_NEO_SOLID: {
@@ -489,6 +492,8 @@ void neo_set_singles(int indx0, int np) {
                 idir = 1;
                 istep = 0;
                 strip.setPixelColor(ip, neo_c2[ip]);
+            } else {
+                strip.setPixelColor(ip, neo_c1[ip]);
             }
         } else {
             if(istep >= neo_c2steps[ip]) {
@@ -496,6 +501,9 @@ void neo_set_singles(int indx0, int np) {
                 istep = 0;
                 strip.setPixelColor(ip, neo_c1[ip]);
             }  
+            else {
+                strip.setPixelColor(ip, neo_c2[ip]);
+            }
         }
         neo_istep[ip] = ((idir << 7) & 0x0080) | (istep & 0x007F);
     }
@@ -710,14 +718,16 @@ void manage_neo(int ibatch) {
     if (ibatch < 0) return;
     switch(neo_mode) {
         case NEO_SINGLE: {
+                digitalWrite(PIN_DB4, HIGH);
                 int np = 15;
                 int indx = ibatch * np;
                 if (indx + np >= NPIXELS) {
                     np = NPIXELS - indx;
                 }
-                if (np <= 0) return;
+                if (np <= 0) {return; digitalWrite(PIN_DB4, LOW); }
                 neo_set_singles(indx, np);
                 neo_show_pending = true;
+                digitalWrite(PIN_DB4, LOW);
             }
             return;
         case NEO_SOLID: 

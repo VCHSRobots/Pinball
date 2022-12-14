@@ -2,11 +2,14 @@
 #
 # "Game1" -- First program to conduct a complete game.
 
+import sys
+sys.path.append("/home/pi/pb/lib")
+
 import time
 import pygame as pyg
 import common 
 import pb_log
-from pb_log import log, logd 
+from pb_log import log 
 import screen 
 import hardware 
 import sound_manager as sm
@@ -22,11 +25,11 @@ import ball_manager
 import event_manager
 import config
 import game_logic
-
 import logic_lanes 
 import logic_targets
+import logic_panic
+import neo_colors as cc
 
-secs_per_day = 2.0  # Controls the speed of the build timer
 
 class PinballMachine():
     '''This class manages the entire pinball machine.'''
@@ -46,6 +49,7 @@ class PinballMachine():
         self._ballmanager = ball_manager.BallManager(self, self._hw, self._flippers)
         self._lane_logic = logic_lanes.LogicLanes(self, self._hw, self._sound, self._plights)
         self._target_logic = logic_targets.LogicTargets(self, self._hw, self._sound, self._plights)
+        self._panic_logic = logic_panic.LogicPanic(self, self._hw, self._sound, self._plights)
         self._game_events = event_manager.EventManager()
         self._highscore = highscore.get_highscore()
         self._nballs = 0   # Number of balls remaining in game, including ball in play.
@@ -91,6 +95,8 @@ class PinballMachine():
             elif ev["name"] == "Check Highscore": self._highscore = highscore.get_highscore()
             elif ev["name"] == "Allow Game": self._prevent_game = False
             elif ev["name"] == "Eject Drop Ball": self._flippers.eject_drop_ball()
+            elif ev["name"] == "End Game": self.set_game_over()
+            elif ev["name"] == "Normal LED Mode": self._plights.set_single_mode()
             else: log(f"Game Event {ev['name']} not handled.")
 
     def make_reports(self):
@@ -113,6 +119,7 @@ class PinballMachine():
         return ("CHAMPS!", "Do all you can!", "Smash everything!", "Push, push!")
     
     def play_day_sound(self):
+        if self._panic_logic.in_panic(): return
         if self._iday ==  1: self._sound.play(sm.S_BUILD_0)
         if self._iday ==  3: self._sound.play(sm.S_BUILD_6)
         if self._iday ==  6: self._sound.play(sm.S_HINT_0)
@@ -121,7 +128,6 @@ class PinballMachine():
         if self._iday == 24: self._sound.play(sm.S_BUILD_3)
         if self._iday == 31: self._sound.play(sm.S_BUILD_2)
         if self._iday == 38: self._sound.play(sm.S_BUILD_1)
-        if self._iday == 39 and self._score < 200: self._sound.play(sm.S_PANIC_5)
         if self._iday == 43: self._sound.play(sm.S_COMPETITION)
         if self._iday == 47: self._sound.play(sm.S_MATCH_START)
         if self._iday == 51: self._sound.play(sm.S_HINT_1)
@@ -129,28 +135,30 @@ class PinballMachine():
         if self._iday == 60: self._sound.play(sm.S_HINT_3)
         if self._iday == 64: self._sound.play(sm.S_HINT_4)
         if self._iday == 70: 
-            if self._score > 2000: self._sound.play(sm.S_SEEDED_1)
-            elif self._score > 1000: self._sound.play(sm.S_SEEDED_8)
-            elif self._score > 400: self._sound.play(sm.S_SEEDED_47)
+            if self._score > 100000: self._sound.play(sm.S_SEEDED_1)
+            elif self._score > 20000: self._sound.play(sm.S_SEEDED_8)
+            elif self._score > 2000: self._sound.play(sm.S_SEEDED_47)
             else: self._sound.play(sm.S_NOT_SELECTED)
-        if self._iday == 74 and self._score > 5000:
+        if self._iday == 74 and self._score > 200000:
             self._sound.play(sm.S_PLAYOFFS)
 
     def advance_calendar(self):
         if not self._game_active: return
         tnow = time.monotonic() 
         telp = tnow - self._last_day_change_time
-        if(telp > secs_per_day):
+        if(telp > config.get_game_param("secs_per_day", 2.5)):
             self._last_day_change_time = tnow 
             self._iday += 1 
             if self._iday > 90: self._iday = 90
             self.play_day_sound()
+            self._panic_logic.on_new_day(self._iday)
 
     def reset_machine(self):
         self.reset_score()
         self.show_score("<Initializing>", "Reading Config", "", "")
         config.init_config()
         self.show_score("<Initializing>", "Configuring Hardware", "", "")
+
         self._slights.queue_startup_cmds()
         self._plights.queue_startup_cmds()
         self._flippers.queue_startup_cmds() 
@@ -211,15 +219,20 @@ class PinballMachine():
         self._flippers.disable_thrid_flipper()
         self._bumpers.enable()
         self._kickers.enable()
-        self._plights.on_new_game()
         self._lane_logic.on_new_game()
         self._target_logic.on_new_game()
+        self._panic_logic.on_new_game()
+        self._plights.set_lamp_modulate(plights.LAMP_LANES, 0, 255, 20)
+        self._plights.set_pixel_blink(plights.PI_RAMP_1, cc.GREEN, cc.DULL_GREEN, 12, 12)
+        self._plights.set_pixel_blink(plights.PI_RAMP_2, cc.DULL_GREEN, cc.GREEN, 12, 12)
+        self._plights.set_all_blink( cc.RED, cc.WHITE, 3)
+        self.add_game_event("Normal LED Mode", 3.0)
         self._game_active = True
         self._sound.play(sm.S_MATCH_START)
         self._last_day_change_time = time.monotonic()
         self._flippers.new_ball()
         self._nballs = 3
-
+ 
     def set_game_over(self, EndingSound=True):
         log("** Game Over.")
         self._highscore = highscore.get_highscore()
@@ -236,8 +249,11 @@ class PinballMachine():
         self._flippers.disable_flippers()
         self._bumpers.disable()
         self._kickers.disable()
+        self._panic_logic.on_game_over()
         self._prevent_new_game = True 
         self._prevent_game_t0 = time.monotonic()
+        self._plights.set_lamp_modulate(plights.LAMP_LANES, 0, 255, 80)
+        self._plights.set_lamp_modulate(plights.LAMP_PANIC, 20, 60, 60)
 
     def add_to_score(self, val):
         if self._nballs > 0 and self._game_active:
@@ -274,6 +290,8 @@ class PinballMachine():
             self._nballs = 0
             self.set_game_over() 
             return
+        self._panic_logic.on_final_drain()
+        self._flippers.disable_thrid_flipper()
         self.sound(sm.S_BALL_LOST)
         if not self._machine_broken:
             self._plights.on_ball_drain()
@@ -287,6 +305,7 @@ class PinballMachine():
             self._flippers.eject_drop_ball()
             return
         self.sound(sm.S_DING_DROPHOLE)
+        self._panic_logic.on_drop_hole()
         hold_time = config.get_game_param("drop_ball_hold", 15)
         self.add_game_event({'name': 'Eject Drop Ball'}, hold_time)
         self.add_to_score(1000)
@@ -307,6 +326,7 @@ class PinballMachine():
             log(f"Event: {e}")
             self._lane_logic.process_hw_event(e)
             self._target_logic.process_hw_event(e)
+            self._panic_logic.process_hw_event(e)
             if e == "F1": # Right Flipper Button
                 self.add_to_score(1) 
             if e == "F2": # Left Flipper Button
@@ -329,13 +349,13 @@ class PinballMachine():
                     points = config.get_points("kicker_hit", 25)
                     self.add_to_score(points) 
                     self.sound(sm.S_DING_KICKER)
-                    log(f"Kicker Hit. ({e}. Awarded {points} points.")
+                    log(f"Kicker Hit. ({e}). Awarded {points} points.")
             if e in ["B1", "B2", "B3"]:
                 if self._game_active:
                     points = config.get_points("bumper_hit", 50)
                     self.add_to_score(points) 
                     self.sound(sm.S_DING_JET_BUMPERS)
-                    log(f"Bumper Hit. ({e}. Awarded {points} points.")
+                    log(f"Bumper Hit. ({e}). Awarded {points} points.")
                     
     def show_score(self, gp=None, g1=None, g2=None, g3=None):
         self._screen.score().main_score = self._score
@@ -366,8 +386,9 @@ class PinballMachine():
                 if e.type == pyg.QUIT or (e.type == pyg.KEYUP and e.key == pyg.K_ESCAPE): 
                     pyg.quit()
                     return 
-                if e.type == pyg.KEYUP:
-                    self._hw.simulate(e.key)
+                elif e.type == pyg.KEYUP and e.key == pyg.K_d: self.add_game_event("Ball Drained")
+                elif e.type == pyg.KEYUP and e.key == pyg.K_e: self.add_game_event("End Game")
+                elif e.type == pyg.KEYUP: self._hw.simulate(e.key)
             if not self._machine_broken:
                 self._hw.update()
                 self._slights.update()
@@ -381,6 +402,7 @@ class PinballMachine():
                 self._ballmanager.update()
                 self.process_hardware_events()
                 self.monitor_game_start()
+                self._panic_logic.update() 
             self.process_game_events()
             self.show_score()
 

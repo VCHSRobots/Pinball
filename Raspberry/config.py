@@ -7,7 +7,7 @@
 from pb_log import log
 
 config = {
-    "active_nodes": [2, 3, 4, 5, 6, 7, 8],
+    "active_nodes": [3, 4],
     "flipper_right": {
         "name": "right flipper",
         "pwm1": 255,
@@ -153,9 +153,11 @@ config = {
 }
 
 game_params = {
-    "drop_ball_hold": 15,   # Seconds to wait before introducing dropped ball into play
-    "report_period": 30,      # Seconds to wait before reporting status to log
-    "check_highscore_period": 20  # Seconds between checking for highscore reset
+    "secs_per_day" : 2.0,         # Seconds per calendar day on game clock
+    "drop_ball_hold": 15,         # Seconds to wait before introducing dropped ball into play
+    "report_period": 30,          # Seconds to wait before reporting status to log
+    "check_highscore_period": 20, # Seconds between checking for highscore reset
+    "panic_time": 20              # How long panic lasts
 }
 
 game_points = {
@@ -166,13 +168,14 @@ game_points = {
     "top_lane": 100,
     "top_lane_with_hot_light": 400,
     "side_lane": 500,
-    "easy_lane":  50,
+    "easy_lane":  25,
     "drain_lanes": 25,
     "flipper_lanes": 50,
     "target_x": 750,
     "target_panic": 500,
     "drop_hole": 1000,
-    "drop_hole_lane": 500
+    "drop_hole_lane": 500,
+    "panic_bonus" : 1000
 }
 
 def init_config():
