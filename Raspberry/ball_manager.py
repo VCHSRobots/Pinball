@@ -152,7 +152,7 @@ class BallManager():
         if self._current_bits == 0b00001111: return "Too many balls!  Must be 3."
         if not self.trough_is_valid(self._current_bits):
             return f"Balls out of position. ({self._current_bits:>04b})"
-        nballs = self.balls_in_trough()
+        nballs = self._balls_in_trough
         if nballs < 3: return f"Only {nballs} found. Need 3."
         elif nballs == 3: return True
         else: return f"Unknown Err. NBalls={nballs}"

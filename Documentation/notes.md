@@ -34,7 +34,7 @@ Make a shell scrip, called "launcher.sh".  It is stored in /home/pi/pb.
 
 Its contents are:
 
-        #!/bin/sh
+        #!/bin/bash
         # launcher.sh -- used to start up the pinball manager program
 
         cd /

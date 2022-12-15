@@ -167,6 +167,7 @@ class Screen():
         else:
             self._size = (1920, 1080)
             self._screen = pyg.display.set_mode(self._size, 0)
+        pyg.mouse.set_visible(False)
 
         # print("Screen Size: ", pyg.display.Info())
 
